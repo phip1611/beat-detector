@@ -1,4 +1,5 @@
 use crate::strategies::{lpf, spectrum};
+use crate::strategies::lpf::LpfBeatDetector;
 
 mod strategies;
 
@@ -6,9 +7,16 @@ mod strategies;
 pub struct BeatInfo {
     relative_ms: u32,
 }
+impl BeatInfo {
+    pub fn new(relative_ms: u32) -> Self {
+        Self {
+            relative_ms,
+        }
+    }
+}
 
 pub trait Strategy {
-    fn is_beat(&self, samples: &[i16], sampling_rate: u16, counter: u32) -> Option<BeatInfo>;
+    fn is_beat(&self, samples: &[i16]) -> Option<BeatInfo>;
 }
 
 /// Strategy to obtain beats from samples.
@@ -20,30 +28,14 @@ pub enum StrategyKind {
     Spectrum,
 }
 
-impl Strategy for StrategyKind {
-    fn is_beat(&self, samples: &[i16], sampling_rate: u16, counter: u32) -> Option<BeatInfo> {
-        let is_beat = match self {
-            StrategyKind::LPF => lpf::is_beat(samples, sampling_rate),
-            StrategyKind::Spectrum => spectrum::is_beat(samples, sampling_rate),
+impl StrategyKind {
+
+    fn detector(&self, sampling_rate: u32, window_length: u16) -> impl Strategy {
+        match self {
+            StrategyKind::LPF => LpfBeatDetector::new(sampling_rate, window_length),
+            StrategyKind::Spectrum => todo!(),
             _ => panic!("Unknown Strategy")
-        };
-
-        if !is_beat {
-            None
-        } else {
-            let sampling_rate = sampling_rate as f32;
-            // Assumes the samples has always the same length during a single run
-            let samples_len = samples.len() as f32;
-            let ms_per_sample = 1.0 / sampling_rate * 1000.0; // Hertz to Seconds to Milliseconds
-            let ms_of_sample = ms_per_sample * samples_len;
-            let relative_time_ms = (ms_of_sample * counter as f32) as u32;
-            Some(
-                BeatInfo {
-                    relative_ms: relative_time_ms
-                }
-            )
         }
-
     }
 }
 
@@ -81,15 +73,12 @@ mod tests {
         ];
 
         for strategy in strategies {
+            let detector = strategy.detector(44100, window_length as u16);
             let mut beats = Vec::new();
             for i in 0..window_count {
                 let window = &sample_1_audio_data[i * window_length..(i+1) * window_length];
                 beats.push(
-                    strategy.is_beat(
-                        window,
-                        44100,
-                        i as u32
-                    )
+                    detector.is_beat(window)
                 );
             }
             println!("{:#?}", beats.iter().filter(|x| x.is_some()).collect::<Vec<&Option<BeatInfo>>>());
