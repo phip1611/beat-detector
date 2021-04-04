@@ -26,6 +26,9 @@ impl LpfBeatDetector {
 }
 
 impl Strategy for LpfBeatDetector {
+
+    /// Analyzes if inside the window of samples a beat was found after
+    /// applying a lowpass filter onto the data.
     #[inline(always)]
     fn is_beat(&self, samples: &[i16]) -> Option<BeatInfo> {
         if samples.len() != self.state.window_length as usize {

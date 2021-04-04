@@ -25,6 +25,9 @@ pub trait Strategy {
 
     /// Checks if inside the samples window a new beat was recognized.
     /// If so, it returns `Some` with [`BeatInfo`] as payload.
+    ///
+    /// Implementations may buffer previous samples and combine them with the latest,
+    /// i.e. make a sliding window.
     fn is_beat(&self, samples: &[i16]) -> Option<BeatInfo>;
 }
 
