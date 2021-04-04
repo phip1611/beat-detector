@@ -3,9 +3,11 @@ use crate::strategies::lpf::LpfBeatDetector;
 
 mod strategies;
 
+/// Struct that holds information about a detected beat.
 #[derive(Debug)]
 pub struct BeatInfo {
     relative_ms: u32,
+    // todo intensity
 }
 impl BeatInfo {
     pub fn new(relative_ms: u32) -> Self {
@@ -15,21 +17,31 @@ impl BeatInfo {
     }
 }
 
+/// Common abstraction over a beat detection strategy. Each strategy keeps ongoing
+/// audio samples, for example from microphone. Strategies should have an internal
+/// mutable state via interior mutability to compare sample windows (and analysis)
+/// against previous values.
 pub trait Strategy {
+
+    /// Checks if inside the samples window a new beat was recognized.
+    /// If so, it returns `Some` with [`BeatInfo`] as payload.
     fn is_beat(&self, samples: &[i16]) -> Option<BeatInfo>;
 }
 
-/// Strategy to obtain beats from samples.
+/// Enum that conveniently and easily makes all [`Strategy`]s provided by this crate accessible.
 #[derive(Debug)]
 pub enum StrategyKind {
-    /// Lowpass-Filter
+    /// Lowpass-Filter. Corresponds to [`strategies::lpf::LpfBeatDetector`].
     LPF,
-    /// Frequency analysis
+    /// Frequency analysis. Corresponds to TODO.
     Spectrum,
 }
 
 impl StrategyKind {
 
+    /// Creates a concrete detector object, i.e. a struct that implements
+    /// [`Strategy`] on that you can continuously analyze your input audio data.
+    /// Supp
     fn detector(&self, sampling_rate: u32, window_length: u16) -> impl Strategy {
         match self {
             StrategyKind::LPF => LpfBeatDetector::new(sampling_rate, window_length),
