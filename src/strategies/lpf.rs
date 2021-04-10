@@ -1,11 +1,11 @@
 use lowpass_filter as lpf;
-use crate::{Strategy, BeatInfo};
+use crate::{Strategy, BeatInfo, StrategyKind};
 use crate::strategies::AnalysisState;
 
 /// Duration in ms after each beat. Useful do prevent the same beat to be
 /// detected as two beats. Value is chosen unscientifically and on will.
 /// I trimmed it until the values were dense to me.
-const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 37;
+const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 33;
 
 /// Struct to provide a beat-detection strategy using a
 /// lowpass filter.
@@ -15,6 +15,8 @@ pub struct LpfBeatDetector {
 }
 
 impl LpfBeatDetector {
+
+    #[inline(always)]
     pub fn new(sampling_rate: u32, window_length: u16) -> Self {
         Self {
             state: AnalysisState::new(
@@ -70,6 +72,11 @@ impl Strategy for LpfBeatDetector {
             self.state.update_last_discovered_beat_timestamp();
             BeatInfo::new(current_rel_time_ms)
         })
+    }
+
+    #[inline(always)]
+    fn kind(&self) -> StrategyKind {
+        StrategyKind::LPF
     }
 }
 
