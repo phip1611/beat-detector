@@ -1,6 +1,7 @@
 use crate::strategies::{lpf, spectrum};
 use crate::strategies::lpf::LpfBeatDetector;
 use std::hash::Hash;
+use crate::strategies::spectrum::SABeatDetector;
 
 mod strategies;
 
@@ -58,10 +59,10 @@ impl StrategyKind {
     /// [`Strategy`] on that you can continuously analyze your input audio data.
     /// Supp
     #[inline(always)]
-    fn detector(&self, sampling_rate: u32, window_length: u16) -> impl Strategy {
+    fn detector(&self, sampling_rate: u32, window_length: u16) -> Box<dyn Strategy> {
         match self {
-            StrategyKind::LPF => LpfBeatDetector::new(sampling_rate, window_length),
-            StrategyKind::Spectrum => todo!(),
+            StrategyKind::LPF => Box::new(LpfBeatDetector::new(sampling_rate, window_length)),
+            StrategyKind::Spectrum => Box::new(SABeatDetector::new(sampling_rate, window_length)),
             _ => panic!("Unknown Strategy")
         }
     }
@@ -91,8 +92,8 @@ mod tests {
         // assert 44,1kHz because it makes things easier
         assert_eq!(sampling_rate, 44100, "The sampling rate of the MP3 examples must be 44100Hz.");
 
-        // 1/44100 * 2048 == 2048/44100 == 0.046439s == 46.439ms
-        let window_length = 2048;
+        // 1/44100 * 1024 == 1024/44100 == 0.046439s == 23,2ms
+        let window_length = 1024;
 
         let map = apply_samples_to_all_strategies(
             window_length,
@@ -130,7 +131,7 @@ mod tests {
             assert_eq!(SAMPLE_1_EXPECTED_BEATS.len(), beats.len(), "Must detect {} beats in sample 1!", SAMPLE_1_EXPECTED_BEATS.len());
             for (i, beat) in beats.iter().enumerate() {
                 let abs_diff = (SAMPLE_1_EXPECTED_BEATS[i] as i64 - beat.relative_ms() as i64).abs() as u32;
-                assert!(abs_diff < DIFF_ERROR_MS, "Recognized beat[{}] should not be more than {} ms away from the actual value", i, DIFF_ERROR_MS);
+                assert!(abs_diff < DIFF_ERROR_MS, "Recognized beat[{}] should not be more than {} ms away from the actual value; is {}ms", i, DIFF_ERROR_MS, abs_diff);
                 if abs_diff >= DIFF_WARN_MS {
                     eprintln!("WARN: Recognized beat[{}] should is less than {}ms away from the actual value; is: {}ms", i, DIFF_WARN_MS, abs_diff);
                 };
@@ -154,8 +155,7 @@ mod tests {
         // all strategies
         let strategies = vec![
             StrategyKind::LPF,
-            // not implemented yet
-            // StrategyKind::Spectrum,
+            StrategyKind::Spectrum,
         ];
 
         let mut map = HashMap::new();

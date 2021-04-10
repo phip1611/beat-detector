@@ -10,6 +10,7 @@ license = "MIT"
 
 [dependencies]
 lowpass-filter = "0.2.3"
+spectrum-analyzer = "0.5.0"
 
 [dev-dependencies]
 minimp3 = "0.5.1"
