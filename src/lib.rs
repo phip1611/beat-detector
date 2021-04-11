@@ -1,10 +1,10 @@
-use crate::strategies::{lpf, spectrum};
+use crate::strategies::AnalysisState;
 use crate::strategies::lpf::LpfBeatDetector;
 use crate::strategies::spectrum::SABeatDetector;
-use std::sync::Arc;
+use crate::strategies::window_stats::WindowStats;
 
 mod strategies;
-mod record;
+pub mod record;
 
 /// Struct that holds information about a detected beat.
 #[derive(Debug)]
@@ -27,6 +27,11 @@ impl BeatInfo {
     }
 }
 
+/// Duration in ms after each beat. Useful do prevent the same beat to be
+/// detected as two beats. Value is chosen unscientifically and on will
+/// until my test worked :D
+const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 150;
+
 /// Common abstraction over a beat detection strategy. Each strategy keeps ongoing
 /// audio samples, for example from microphone. Strategies should have an internal
 /// mutable state via interior mutability to compare sample windows (and analysis)
@@ -43,6 +48,33 @@ pub trait Strategy {
     /// Convenient getter to get the [`StrategyKind`] of a strategy.
     /// This is a 1:1 mapping.
     fn kind(&self) -> StrategyKind;
+
+    /// Abstract implementation for all strategies which checks if
+    /// the current window should be skipped, because the distance
+    /// to the last beat is to short.
+    #[inline(always)]
+    fn skip_window_by_timestamp(&self, state: &AnalysisState) -> bool {
+        // BEGIN: CHECK IF NEXT BEAT WHAT BE TECHNICALLY POSSIBLE (more than x MS from last beat)
+        let current_rel_time_ms = state.get_relative_time_ms();
+
+        // only check this if at least a single beat was recognized
+        if state.last_beat_timestamp() > 0 {
+            let threshold = state.last_beat_timestamp() + MIN_DURATION_BETWEEN_BEATS_MS;
+            if current_rel_time_ms < threshold {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Abstract implementation for all strategies which checks if
+    /// the current windows max amplitude is below a value where
+    /// a beat could happen in theory (e.g. just noise between songs)
+    #[inline(always)]
+    fn skip_window_by_amplitude(&self, w_stats: &WindowStats) -> bool {
+        const MIN_AMPLITUDE_THRESHOLD: i16 = (i16::MAX as f32 * 0.3) as i16;
+        w_stats.max() <= MIN_AMPLITUDE_THRESHOLD as u16
+    }
 }
 
 /// Enum that conveniently and easily makes all [`Strategy`]s provided by this crate accessible.
@@ -89,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_sample_1_print_beats() {
-        let (mut sample_1_audio_data, sampling_rate) = read_mp3_to_mono("res/sample_1.mp3");
+        let (sample_1_audio_data, sampling_rate) = read_mp3_to_mono("res/sample_1.mp3");
         // assert 44,1kHz because it makes things easier
         assert_eq!(sampling_rate, 44100, "The sampling rate of the MP3 examples must be 44100Hz.");
 
@@ -112,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_sample_1_beat_detection() {
-        let (mut sample_1_audio_data, sampling_rate) = read_mp3_to_mono("res/sample_1.mp3");
+        let (sample_1_audio_data, sampling_rate) = read_mp3_to_mono("res/sample_1.mp3");
         // assert 44,1kHz because it makes things easier
         assert_eq!(sampling_rate, 44100, "The sampling rate of the MP3 examples must be 44100Hz.");
 
@@ -129,18 +161,18 @@ mod tests {
         const DIFF_ERROR_MS: u32 = 60;
 
         for (strategy, beats) in map {
-            assert_eq!(SAMPLE_1_EXPECTED_BEATS_MS.len(), beats.len(), "Must detect {} beats in sample 1!", SAMPLE_1_EXPECTED_BEATS_MS.len());
+            assert_eq!(SAMPLE_1_EXPECTED_BEATS_MS.len(), beats.len(), "Strategy {:?} must detect {} beats in sample 1!", strategy, SAMPLE_1_EXPECTED_BEATS_MS.len());
             for (i, beat) in beats.iter().enumerate() {
                 let abs_diff = (SAMPLE_1_EXPECTED_BEATS_MS[i] as i64 - beat.relative_ms() as i64).abs() as u32;
-                assert!(abs_diff < DIFF_ERROR_MS, "Recognized beat[{}] should not be more than {} ms away from the actual value; is {}ms", i, DIFF_ERROR_MS, abs_diff);
+                assert!(abs_diff < DIFF_ERROR_MS, "[{:?}]: Recognized beat[{}] should not be more than {} ms away from the actual value; is {}ms", strategy, i, DIFF_ERROR_MS, abs_diff);
                 if abs_diff >= DIFF_WARN_MS {
-                    eprintln!("WARN: Recognized beat[{}] should is less than {}ms away from the actual value; is: {}ms", i, DIFF_WARN_MS, abs_diff);
+                    eprintln!("[{:?}]: WARN: Recognized beat[{}] should is less than {}ms away from the actual value; is: {}ms", strategy, i, DIFF_WARN_MS, abs_diff);
                 };
             }
         }
     }
 
-    fn apply_samples_to_all_strategies(window_length: usize, samples: &[i16], sampling_rate: u32) -> HashMap<StrategyKind, Vec<BeatInfo>> {
+    fn apply_samples_to_all_strategies(window_length: usize, samples: &[i16], _sampling_rate: u32) -> HashMap<StrategyKind, Vec<BeatInfo>> {
         // we pad with zeroes until the audio data length is a multiple
         // of the window length
         let mut samples = Vec::from(samples);

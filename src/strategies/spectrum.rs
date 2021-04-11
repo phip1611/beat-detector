@@ -1,11 +1,7 @@
 use crate::strategies::AnalysisState;
 use crate::{BeatInfo, Strategy, StrategyKind};
 use spectrum_analyzer::FrequencyLimit;
-
-/// Duration in ms after each beat. Useful do prevent the same beat to be
-/// detected as two beats. Value is chosen unscientifically and on will
-/// until my test worked :D
-const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 150;
+use crate::strategies::window_stats::WindowStats;
 
 /// Struct to provide a beat-detection strategy using a
 /// Spectrum Analysis.
@@ -44,25 +40,18 @@ impl Strategy for SABeatDetector {
 
         // tell the state beforehand that we are analyzing the next window - important!
         self.state.inc_window_count();
+        // skip if distance to last beat is not fair away enough
+        if self.skip_window_by_timestamp(&self.state) { return None };
+        // skip if the amplitude is too low, e.g. noise or silence between songs
+        let w_stats = WindowStats::from(samples);
+        if self.skip_window_by_amplitude(&w_stats) { return None };
 
-        // BEGIN: CHECK IF NEXT BEAT WHAT BE TECHNICALLY POSSIBLE (more than x MS from last beat)
-        let current_rel_time_ms = self.state.get_relative_time_ms();
-
-        // only check this if at least a single beat was recognized
-        if self.state.last_beat_timestamp() > 0 {
-            let threshold = self.state.last_beat_timestamp() + MIN_DURATION_BETWEEN_BEATS_MS;
-            if current_rel_time_ms < threshold {
-                return None;
-            }
-        }
-
-        // END
         let samples = samples.iter().map(|x| *x as f32).collect::<Vec<_>>();
 
         let spectrum = spectrum_analyzer::samples_fft_to_spectrum(
             &samples,
             self.state.sampling_rate(),
-            FrequencyLimit::Max(70.0),
+            FrequencyLimit::Max(90.0),
             // scale values
             Some(&|x| x/samples.len() as f32),
             None,
@@ -71,7 +60,7 @@ impl Strategy for SABeatDetector {
         if spectrum.max().1.val() > 4400.0 {
             // mark we found a beat
             self.state.update_last_discovered_beat_timestamp();
-            Some(BeatInfo::new(current_rel_time_ms))
+            Some(BeatInfo::new(self.state.get_relative_time_ms()))
         } else {
             None
         }

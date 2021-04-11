@@ -15,6 +15,7 @@ cpal = "0.13.3"
 
 [dev-dependencies]
 minimp3 = "0.5.1"
+ctrlc = { version = "3.1.8", features = ["termination"] } # for examples
 
 
 # otherwise FFT and other code is too slow

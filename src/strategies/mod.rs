@@ -1,13 +1,13 @@
-use crate::Strategy;
 use std::cell::Cell;
 
 pub(crate) mod lpf;
 pub(crate) mod spectrum;
+pub mod window_stats;
 
 /// Structure that each [`super::Strategy`]-implementation shall use. It helps to keep
 /// internal state about the ongoing analysis.
 #[derive(Debug)]
-struct AnalysisState {
+pub struct AnalysisState {
     /// Sampling rate of the measurement. This is immutable, i.e it assumes that
     /// this value doesn't change during ongoing analysis. Value is for example
     /// 44100 Hz.
