@@ -5,7 +5,7 @@ use crate::strategies::AnalysisState;
 /// Duration in ms after each beat. Useful do prevent the same beat to be
 /// detected as two beats. Value is chosen unscientifically and on will.
 /// I trimmed it until the values were dense to me.
-const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 33;
+const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 150;
 
 /// Struct to provide a beat-detection strategy using a
 /// lowpass filter.

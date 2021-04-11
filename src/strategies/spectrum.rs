@@ -5,7 +5,7 @@ use spectrum_analyzer::FrequencyLimit;
 /// Duration in ms after each beat. Useful do prevent the same beat to be
 /// detected as two beats. Value is chosen unscientifically and on will
 /// until my test worked :D
-const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 77;
+const MIN_DURATION_BETWEEN_BEATS_MS: u32 = 150;
 
 /// Struct to provide a beat-detection strategy using a
 /// Spectrum Analysis.

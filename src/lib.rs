@@ -1,52 +1,10 @@
 use crate::strategies::{lpf, spectrum};
 use crate::strategies::lpf::LpfBeatDetector;
-use std::hash::Hash;
 use crate::strategies::spectrum::SABeatDetector;
-use std::thread::{spawn, JoinHandle};
+use std::sync::Arc;
 
 mod strategies;
-
-pub fn start_listening(on_beat_cb: impl Fn(&[i16]) + Sync + Send + 'static) -> JoinHandle<()> {
-    let handle = spawn(move || {
-        let mut ctx = soundio::Context::new();
-        ctx.connect().unwrap();
-        ctx.flush_events();
-        let dev = ctx.default_input_device().expect("No input device");
-        let read_callback = read_callback_factory(on_beat_cb);
-        let mut input_stream = dev.open_instream(
-            44100,
-            soundio::Format::S16LE,
-            soundio::ChannelLayout::get_builtin(soundio::ChannelLayoutId::Mono),
-            2.0,
-            read_callback,
-            None::<fn()>,
-            None::<fn(soundio::Error)>,
-        ).unwrap();
-        input_stream.start().unwrap();
-        loop {}
-    });
-
-    fn read_callback_factory(on_beat_cb: impl Fn(&[i16])) -> impl FnMut(&mut soundio::InStreamReader) {
-        move |stream: &mut soundio::InStreamReader| {
-            let frame_count_max = stream.frame_count_max();
-            if let Err(e) = stream.begin_read(frame_count_max) {
-                println!("Error reading from stream: {}", e);
-                return;
-            }
-
-            for f in 0..stream.frame_count() {
-                assert_eq!(stream.channel_count(), 1, "Audio data must be mono!");
-                assert_eq!(stream.sample_rate(), 44100, "Sampling rate must be 44,1kHz!");
-                let sample = stream.sample::<i16>(0, f);
-                println!("sample: {}", sample);
-            }
-
-            on_beat_cb(&[]);
-        }
-    }
-
-    handle
-}
+mod record;
 
 /// Struct that holds information about a detected beat.
 #[derive(Debug)]
@@ -102,7 +60,7 @@ impl StrategyKind {
     /// [`Strategy`] on that you can continuously analyze your input audio data.
     /// Supp
     #[inline(always)]
-    fn detector(&self, sampling_rate: u32, window_length: u16) -> Box<dyn Strategy> {
+    fn detector(&self, sampling_rate: u32, window_length: u16) -> Box<dyn Strategy + Send> {
         match self {
             StrategyKind::LPF => Box::new(LpfBeatDetector::new(sampling_rate, window_length)),
             StrategyKind::Spectrum => Box::new(SABeatDetector::new(sampling_rate, window_length)),
@@ -120,7 +78,7 @@ mod tests {
 
     // opened the file in Audacity and looked where the
     // beats are
-    const SAMPLE_1_EXPECTED_BEATS: [u32; 6] = [
+    const SAMPLE_1_EXPECTED_BEATS_MS: [u32; 6] = [
         300,
         2131,
         2297,
@@ -171,9 +129,9 @@ mod tests {
         const DIFF_ERROR_MS: u32 = 60;
 
         for (strategy, beats) in map {
-            assert_eq!(SAMPLE_1_EXPECTED_BEATS.len(), beats.len(), "Must detect {} beats in sample 1!", SAMPLE_1_EXPECTED_BEATS.len());
+            assert_eq!(SAMPLE_1_EXPECTED_BEATS_MS.len(), beats.len(), "Must detect {} beats in sample 1!", SAMPLE_1_EXPECTED_BEATS_MS.len());
             for (i, beat) in beats.iter().enumerate() {
-                let abs_diff = (SAMPLE_1_EXPECTED_BEATS[i] as i64 - beat.relative_ms() as i64).abs() as u32;
+                let abs_diff = (SAMPLE_1_EXPECTED_BEATS_MS[i] as i64 - beat.relative_ms() as i64).abs() as u32;
                 assert!(abs_diff < DIFF_ERROR_MS, "Recognized beat[{}] should not be more than {} ms away from the actual value; is {}ms", i, DIFF_ERROR_MS, abs_diff);
                 if abs_diff >= DIFF_WARN_MS {
                     eprintln!("WARN: Recognized beat[{}] should is less than {}ms away from the actual value; is: {}ms", i, DIFF_WARN_MS, abs_diff);
@@ -217,15 +175,6 @@ mod tests {
         }
 
         map
-    }
-
-    #[test]
-    fn test_start_listening() {
-        let cb = |samples: &[i16]| {
-            println!("hallo");
-        };
-        let t = start_listening(cb);
-        t.join().unwrap();
     }
 
     /// Reads an MP3 and returns the audio data as mono channel + the sampling rate in Hertz.
