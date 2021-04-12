@@ -1,21 +1,30 @@
 [package]
 name = "beat-detector"
-description = "Audio beat detection library."
-version = "0.0.0"
+description = """
+Audio beat detection library, that supports different audio input devices as source.
+You can pass a callback for each found beat to the library.
+"""
+version = "0.1.0"
 authors = ["Philipp Schuster <phip1611@gmail.com>"]
 edition = "2018"
 license = "MIT"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+keywords = ["audio", "beat", "beat-detection" ]
+categories = [ "multimedia::audio" ]
+readme = "README.md"
+homepage = "https://github.com/phip1611/beat-detector"
+repository = "https://github.com/phip1611/beat-detector"
+documentation = "https://docs.rs/beat-detector"
 
 [dependencies]
-lowpass-filter = "0.2.3"
-spectrum-analyzer = "0.5.0"
+lowpass-filter = "0.2.4"
+spectrum-analyzer = "0.5.2"
 cpal = "0.13.3"
 
 [dev-dependencies]
 minimp3 = "0.5.1"
-ctrlc = { version = "3.1.8", features = ["termination"] } # for examples
+ctrlc = { version = "3.1.9", features = ["termination"] } # for examples
+ws2818-rgb-led-spi-driver = "2.0.0" # for examples
+rand = "0.8.3" # for examples
 
 
 # otherwise FFT and other code is too slow
