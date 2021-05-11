@@ -1,4 +1,7 @@
 language: rust
+before_install:
+  # alsa header files, required for rust build
+  - apt update && apt install libasound2-dev
 rust:
   - stable
 cache: cargo
