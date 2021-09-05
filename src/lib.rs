@@ -21,6 +21,24 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+#![deny(
+clippy::all,
+clippy::cargo,
+clippy::nursery,
+// clippy::restriction,
+// clippy::pedantic
+)]
+// now allow a few rules which are denied by the above statement
+// --> they are ridiculous and not necessary
+#![allow(
+    clippy::suboptimal_flops,
+    clippy::redundant_pub_crate,
+    clippy::fallible_impl_from
+)]
+#![deny(missing_debug_implementations)]
+#![deny(rustdoc::all)]
+
 use crate::strategies::lpf::LpfBeatDetector;
 use crate::strategies::spectrum::SABeatDetector;
 use crate::strategies::window_stats::WindowStats;
@@ -37,12 +55,12 @@ pub struct BeatInfo {
 }
 impl BeatInfo {
     #[inline(always)]
-    pub fn new(relative_ms: u32) -> Self {
+    pub const fn new(relative_ms: u32) -> Self {
         Self { relative_ms }
     }
 
     #[inline(always)]
-    pub fn relative_ms(&self) -> u32 {
+    pub const fn relative_ms(&self) -> u32 {
         self.relative_ms
     }
 }
@@ -138,7 +156,7 @@ impl StrategyKind {
         match self {
             StrategyKind::LPF => Box::new(LpfBeatDetector::new(sampling_rate)),
             StrategyKind::Spectrum => Box::new(SABeatDetector::new(sampling_rate)),
-            _ => panic!("Unknown Strategy"),
+            // _ => panic!("Unknown Strategy"),
         }
     }
 
@@ -147,7 +165,7 @@ impl StrategyKind {
         match self {
             StrategyKind::LPF => LpfBeatDetector::name(),
             StrategyKind::Spectrum => SABeatDetector::name(),
-            _ => panic!("Unknown Strategy"),
+            // _ => panic!("Unknown Strategy"),
         }
     }
 
@@ -156,12 +174,12 @@ impl StrategyKind {
         match self {
             StrategyKind::LPF => LpfBeatDetector::description(),
             StrategyKind::Spectrum => SABeatDetector::description(),
-            _ => panic!("Unknown Strategy"),
+            // _ => panic!("Unknown Strategy"),
         }
     }
 
     /// Returns a vector with all strategy kinds to iterate over them.
-    pub fn values() -> Vec<StrategyKind> {
+    pub fn values() -> Vec<Self> {
         vec![Self::LPF, Self::Spectrum]
     }
 }

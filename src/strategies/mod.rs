@@ -92,7 +92,7 @@ impl AnalysisState {
 
     /// Getter for [`sampling_rate`].
     #[inline(always)]
-    pub fn sampling_rate(&self) -> u32 {
+    pub const fn sampling_rate(&self) -> u32 {
         self.sampling_rate
     }
 

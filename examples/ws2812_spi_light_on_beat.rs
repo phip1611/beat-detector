@@ -21,17 +21,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-use cpal::Device;
-use std::collections::{BTreeMap};
-use std::io::stdin;
 use beat_detector::StrategyKind;
+use cpal::Device;
+use std::collections::BTreeMap;
+use std::io::stdin;
+use std::ops::Add;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Instant, Duration};
-use std::ops::Add;
-use ws2818_rgb_led_spi_driver::adapter_spi::WS28xxSpiAdapter;
+use std::time::{Duration, Instant};
 use ws2818_rgb_led_spi_driver::adapter_gen::WS28xxAdapter;
-
+use ws2818_rgb_led_spi_driver::adapter_spi::WS28xxSpiAdapter;
 
 // LED steps per second
 pub const ANIMATION_FREQUENCY: u64 = 90; // in Hz
@@ -52,23 +51,27 @@ fn main() {
     ctrlc::set_handler(move || {
         eprintln!("Stopping recording");
         recording_cpy.store(false, Ordering::SeqCst);
-    }).expect("Ctrl-C handler doesn't work");
+    })
+    .expect("Ctrl-C handler doesn't work");
 
     let devs = beat_detector::record::audio_input_device_list();
-    if devs.is_empty() { panic!("No audio input devices found!") }
-    let dev = if devs.len() > 1 { select_input_device(devs) } else { devs.into_iter().next().unwrap().1 };
+    if devs.is_empty() {
+        panic!("No audio input devices found!")
+    }
+    let dev = if devs.len() > 1 {
+        select_input_device(devs)
+    } else {
+        devs.into_iter().next().unwrap().1
+    };
     let strategy = select_strategy();
     let anim_t = anim.clone();
     let on_beat = move |info| {
         println!("Found beat at {:?}ms", info);
         anim_t.lock().unwrap().add_next_light_impulse();
     };
-    let handle = beat_detector::record::start_listening(
-        on_beat,
-        Some(dev),
-        strategy,
-        recording.clone(),
-    ).unwrap();
+    let handle =
+        beat_detector::record::start_listening(on_beat, Some(dev), strategy, recording.clone())
+            .unwrap();
 
     while recording.load(Ordering::SeqCst) {
         let next_timestamp = Instant::now().add(Duration::from_millis(ANIMATION_FREQUENCY_MS));
@@ -93,8 +96,12 @@ fn select_input_device(devs: BTreeMap<String, Device>) -> Device {
     println!("Select audio device: input device number and enter:");
     let mut input = String::new();
     while stdin().read_line(&mut input).unwrap() == 0 {}
-    let input = input.trim().parse::<u8>().expect("Input must be a valid number!");
-    devs.into_iter().enumerate()
+    let input = input
+        .trim()
+        .parse::<u8>()
+        .expect("Input must be a valid number!");
+    devs.into_iter()
+        .enumerate()
         .filter(|(i, _)| *i == input as usize)
         .map(|(_i, (_name, dev))| dev)
         .take(1)
@@ -104,13 +111,19 @@ fn select_input_device(devs: BTreeMap<String, Device>) -> Device {
 
 fn select_strategy() -> StrategyKind {
     println!("Available beat detection strategies:");
-    StrategyKind::values().into_iter().enumerate().for_each(|(i, s)| {
-        println!("  [{}] {} - {}", i, s.name(), s.description());
-    });
+    StrategyKind::values()
+        .into_iter()
+        .enumerate()
+        .for_each(|(i, s)| {
+            println!("  [{}] {} - {}", i, s.name(), s.description());
+        });
     println!("Select strategy: input id and enter:");
     let mut input = String::new();
     while stdin().read_line(&mut input).unwrap() == 0 {}
-    let input = input.trim().parse::<u8>().expect("Input must be a valid number!");
+    let input = input
+        .trim()
+        .parse::<u8>()
+        .expect("Input must be a valid number!");
     match input {
         0 => StrategyKind::LPF,
         1 => StrategyKind::Spectrum,
@@ -123,7 +136,10 @@ pub fn select_num_leds() -> u16 {
     println!("Input and enter how many LEDs are connected to your device (64, 150, ..):");
     let mut input = String::new();
     while stdin().read_line(&mut input).unwrap() == 0 {}
-    let input = input.trim().parse::<u16>().expect("Input must be a valid number!");
+    let input = input
+        .trim()
+        .parse::<u16>()
+        .expect("Input must be a valid number!");
     input
 }
 
