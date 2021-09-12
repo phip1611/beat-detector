@@ -1,0 +1,100 @@
+name: Build
+
+# Triggers the workflow on push or pull request events (for any branch in a repository)
+on: [ push, pull_request ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+          - 1.59.0 # MSRV
+    steps:
+      - uses: actions/checkout@v2
+      # Important preparation step: override the latest default Rust version in GitHub CI
+      # with the current value of the iteration in the "strategy.matrix.rust"-array.
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: ${{ matrix.rust }}
+          override: true
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install libasound2-dev -y
+      - run: cargo build --all-targets
+      - run: cargo test
+
+  build_nostd:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+          - 1.59.0 # MSRV
+    steps:
+      - uses: actions/checkout@v2
+      # Important preparation step: override the latest default Rust version in GitHub CI
+      # with the current value of the iteration in the "strategy.matrix.rust"-array.
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: ${{ matrix.rust }}
+          override: true
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install libasound2-dev -y
+      # install some no_std target
+      - run: rustup target add thumbv7em-none-eabihf
+      # reset CPU=native
+      - run: RUSTFLAGS="-C target-cpu=" cargo build --no-default-features --target thumbv7em-none-eabihf
+
+  build_external_examples:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+          - 1.59.0 # MSRV
+    steps:
+      - uses: actions/checkout@v2
+      # Important preparation step: override the latest default Rust version in GitHub CI
+      # with the current value of the iteration in the "strategy.matrix.rust"-array.
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: ${{ matrix.rust }}
+          override: true
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install libasound2-dev -y
+      - run: cd "external-examples"
+      - run: cargo build
+
+  style_checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+    steps:
+      - uses: actions/checkout@v2
+      # Important preparation step: override the latest default Rust version in GitHub CI
+      # with the current value of the iteration in the "strategy.matrix.rust"-array.
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: ${{ matrix.rust }}
+          override: true
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install libasound2-dev -y
+      - name: Rustfmt (checks all source code/all features)
+        run: cargo fmt -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets
+      - name: Rustdoc
+        run: cargo doc

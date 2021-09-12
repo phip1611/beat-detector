@@ -1,9 +1,21 @@
 # Beat Detector - Audio Beat Detection Library Written In Rust
 
+# Performance / Latency
+On a realistic workload each analysis step of my algorithm, i.e., on each new audio input, took 0.5ms on a Raspberry
+Pi and 0.05ms on an Intel i5-10600K. The benchmark binary was build as optimized release build. Thus, this is the
+minimum latency you have to expect plus additional latency from the audio input interface.
+The benchmark can be executed with: `cargo run --release --example --bench`
+
+TODO: performance/latency over memory usage. Thus higher memory usage and more buffers for maximum performance
+
+---
+
 This is a Rust library that enables beat detection on live audio data input.
-One use case is that you have an audio/aux-splitter on your computer where one 
-end goes into the sound system whereas the other goes into the microphone input 
+One use case is that you have an audio/aux-splitter on your computer where one
+end goes into the sound system whereas the other goes into the microphone input
 of a Raspberry Pi.
+
+TODO outdated
 
 The crate provides multiple strategies that you can connect to the audio source.
 So far it offers two strategies:
@@ -74,4 +86,4 @@ fn select_strategy() -> StrategyKind {
 ```
 
 ## MSRV (Minimal Supported Rust Version)
-1.52.1 stable
+1.59.0 stable

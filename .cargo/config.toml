@@ -1,0 +1,10 @@
+# https://doc.rust-lang.org/cargo/reference/config.html
+#
+# Compile for maximum performance. Only relevant for example binaries in this
+# repository.
+
+[build]
+rustflags = [
+    "-C",
+    "target-cpu=native",
+]
