@@ -25,6 +25,9 @@ use crate::strategies::window_stats::WindowStats;
 use crate::strategies::AnalysisState;
 use crate::{BeatInfo, Strategy, StrategyKind};
 use spectrum_analyzer::FrequencyLimit;
+use ringbuffer::{ConstGenericRingBuffer, RingBufferWrite, RingBufferExt};
+use std::cell::RefCell;
+use spectrum_analyzer::scaling::divide_by_N;
 
 /// Struct to provide a beat-detection strategy using a
 /// Spectrum Analysis. The algorithm is pretty basic/stupid.
@@ -34,60 +37,59 @@ use spectrum_analyzer::FrequencyLimit;
 #[derive(Debug)]
 pub struct SABeatDetector {
     state: AnalysisState,
+    // ring buffer with latest audio; necessary because we don't
+    // necessarily get 1024 samples at each callback but mostly
+    // 500-540..
+    audio_data_buf: RefCell<ConstGenericRingBuffer<f32, 1024>>,
 }
 
 impl SABeatDetector {
     #[inline(always)]
     pub fn new(sampling_rate: u32) -> Self {
+        const LEN: usize = 1024;
+        let mut initial_buf = ConstGenericRingBuffer::<f32, LEN>::new();
+        (0..LEN).for_each(|_| initial_buf.push(0.0));
         Self {
             state: AnalysisState::new(sampling_rate),
+            audio_data_buf: RefCell::from(initial_buf),
         }
-    }
-
-    /// Returns `frame_len` or the next power of 2.
-    #[inline(always)]
-    fn next_power_of_2(frame_len: usize) -> usize {
-        let exponent = (frame_len as f32).log2().ceil();
-        2_usize.pow(exponent as u32)
     }
 }
 
 impl Strategy for SABeatDetector {
-    /// Analyzes if inside the window of samples a beat was found after
-    /// applying a lowpass filter onto the data.
+    /// Callback called when the audio input library got the next callback.
     #[inline(always)]
-    fn is_beat(&self, orig_samples: &[i16]) -> Option<BeatInfo> {
-        // make sure buffer has length that is a power of two for FFT
-        let len_power_of_2 = Self::next_power_of_2(orig_samples.len());
-        let diff = len_power_of_2 - orig_samples.len();
-        let mut samples = Vec::with_capacity(len_power_of_2);
-        samples.extend_from_slice(orig_samples);
-        samples.extend_from_slice(&vec![0; diff]);
+    fn is_beat(&self, callback_samples: &[i16]) -> Option<BeatInfo> {
+        // make sure we have the latest 1024 audio samples in the buffer
+        // => ready for FFT
+        let mut audio_data_buf = self.audio_data_buf.borrow_mut();
+        for sample in callback_samples {
+            audio_data_buf.push(*sample as f32);
+        }
 
         // tell the state beforehand that we are analyzing the next window - important!
-        self.state.update_time(samples.len());
-        // skip if distance to last beat is not fair away enough
+        self.state.update_time(callback_samples.len());
+        // skip if distance to last beat is not far away enough
         if !self.last_beat_beyond_threshold(&self.state) {
             return None;
         };
         // skip if the amplitude is too low, e.g. noise or silence between songs
-        let w_stats = WindowStats::from(samples.as_slice());
+        let w_stats = WindowStats::from(callback_samples);
         if !self.amplitude_high_enough(&w_stats) {
             return None;
         };
 
-        let samples = samples.iter().map(|x| *x as f32).collect::<Vec<_>>();
-
         let spectrum = spectrum_analyzer::samples_fft_to_spectrum(
-            &samples,
+            &audio_data_buf.to_vec(),
             self.state.sampling_rate(),
             FrequencyLimit::Max(90.0),
-            // scale values
-            Some(&|x| x / samples.len() as f32),
-            None,
-        );
+            // None,
+            Some(&divide_by_N),
+        ).unwrap();
 
-        if spectrum.max().1.val() > 4400.0 {
+        // I don't know what the value really means :D
+        // figured out by testing.. :/
+        if spectrum.max().1.val() > 2_100_000.0 {
             // mark we found a beat
             self.state.update_last_discovered_beat_timestamp();
             Some(BeatInfo::new(self.state.beat_time_ms()))
@@ -132,14 +134,6 @@ impl Strategy for SABeatDetector {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
+    // use super::*;
 
-    #[test]
-    fn test_next_power_of_2() {
-        assert_eq!(2, SABeatDetector::next_power_of_2(2));
-        assert_eq!(16, SABeatDetector::next_power_of_2(16));
-        assert_eq!(128, SABeatDetector::next_power_of_2(127));
-        assert_eq!(128, SABeatDetector::next_power_of_2(128));
-        assert_eq!(256, SABeatDetector::next_power_of_2(129));
-    }
 }

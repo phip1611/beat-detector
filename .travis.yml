@@ -3,5 +3,7 @@ before_install:
   # alsa header files, required for rust build
   - sudo apt update && sudo apt install libasound2-dev
 rust:
+  - 1.52.1
   - stable
+  - nightly
 cache: cargo

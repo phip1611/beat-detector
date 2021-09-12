@@ -23,8 +23,8 @@ SOFTWARE.
 */
 //! Minimum example on how to use this library. Sets up the "callback loop".
 
-use cpal::Device;
 use beat_detector::StrategyKind;
+use cpal::Device;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -36,7 +36,8 @@ fn main() {
     ctrlc::set_handler(move || {
         eprintln!("Stopping recording");
         recording_cpy.store(false, Ordering::SeqCst);
-    }).unwrap();
+    })
+    .unwrap();
 
     let dev = select_input_device();
     let strategy = select_strategy();
@@ -44,19 +45,19 @@ fn main() {
         println!("Found beat at {:?}ms", info);
     };
     // actually start listening in thread
-    let handle = beat_detector::record::start_listening(
-        on_beat,
-        Some(dev),
-        strategy,
-        recording,
-    ).unwrap();
+    let handle =
+        beat_detector::record::start_listening(on_beat, Some(dev), strategy, recording).unwrap();
 
     handle.join().unwrap();
 }
 
 fn select_input_device() -> Device {
     // todo implement user selection
-    beat_detector::record::audio_input_device_list().into_iter().next().expect("At least one audio input device must be available.").1
+    beat_detector::record::audio_input_device_list()
+        .into_iter()
+        .next()
+        .expect("At least one audio input device must be available.")
+        .1
 }
 
 fn select_strategy() -> StrategyKind {

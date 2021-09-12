@@ -72,3 +72,6 @@ fn select_strategy() -> StrategyKind {
     StrategyKind::Spectrum
 }
 ```
+
+## MSRV (Minimal Supported Rust Version)
+1.52.1 stable

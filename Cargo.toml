@@ -4,7 +4,7 @@ description = """
 Audio beat detection library, that supports different audio input devices as source.
 You can pass a callback for each found beat to the library.
 """
-version = "0.1.0"
+version = "0.1.2"
 authors = ["Philipp Schuster <phip1611@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -17,8 +17,9 @@ documentation = "https://docs.rs/beat-detector"
 
 [dependencies]
 lowpass-filter = "0.2.4"
-spectrum-analyzer = "0.5.2"
+spectrum-analyzer = "1.1.0"
 cpal = "0.13.3"
+ringbuffer = "0.7.1"
 
 [dev-dependencies]
 minimp3 = "0.5.1"

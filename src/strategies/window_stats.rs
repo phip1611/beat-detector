@@ -33,7 +33,7 @@ pub struct WindowStats {
 
 impl WindowStats {
     #[inline(always)]
-    pub fn max(&self) -> u16 {
+    pub const fn max(&self) -> u16 {
         self.max
     }
 }
@@ -47,7 +47,7 @@ impl From<&[i16]> for WindowStats {
             .map(|x| if *x == i16::MIN { x + 1 } else { *x })
             .map(|x| x.abs())
             .collect::<Vec<_>>();
-        abs_samples_ordered.sort();
+        abs_samples_ordered.sort_unstable();
         let max = *abs_samples_ordered.last().unwrap() as u16;
 
         Self { max }
