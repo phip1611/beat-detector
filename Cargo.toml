@@ -17,7 +17,7 @@ documentation = "https://docs.rs/beat-detector"
 
 [dependencies]
 lowpass-filter = "0.2.4"
-spectrum-analyzer = "0.5.2"
+spectrum-analyzer = "1.1.0"
 cpal = "0.13.3"
 ringbuffer = "0.7.1"
 

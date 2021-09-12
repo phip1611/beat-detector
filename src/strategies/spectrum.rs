@@ -25,8 +25,9 @@ use crate::strategies::window_stats::WindowStats;
 use crate::strategies::AnalysisState;
 use crate::{BeatInfo, Strategy, StrategyKind};
 use spectrum_analyzer::FrequencyLimit;
-use ringbuffer::{ConstGenericRingBuffer, RingBuffer, RingBufferWrite, RingBufferExt};
+use ringbuffer::{ConstGenericRingBuffer, RingBufferWrite, RingBufferExt};
 use std::cell::RefCell;
+use spectrum_analyzer::scaling::divide_by_N;
 
 /// Struct to provide a beat-detection strategy using a
 /// Spectrum Analysis. The algorithm is pretty basic/stupid.
@@ -82,14 +83,13 @@ impl Strategy for SABeatDetector {
             &audio_data_buf.to_vec(),
             self.state.sampling_rate(),
             FrequencyLimit::Max(90.0),
-            // scale values
-            Some(&|x| x / audio_data_buf.len() as f32),
-            None,
-        );
+            // None,
+            Some(&divide_by_N),
+        ).unwrap();
 
         // I don't know what the value really means :D
-        // figured out by testing
-        if spectrum.max().1.val() > 6200.0 {
+        // figured out by testing.. :/
+        if spectrum.max().1.val() > 2_100_000.0 {
             // mark we found a beat
             self.state.update_last_discovered_beat_timestamp();
             Some(BeatInfo::new(self.state.beat_time_ms()))
@@ -134,14 +134,6 @@ impl Strategy for SABeatDetector {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
+    // use super::*;
 
-    #[test]
-    fn test_next_power_of_2() {
-        assert_eq!(2, SABeatDetector::next_power_of_2(2));
-        assert_eq!(16, SABeatDetector::next_power_of_2(16));
-        assert_eq!(128, SABeatDetector::next_power_of_2(127));
-        assert_eq!(128, SABeatDetector::next_power_of_2(128));
-        assert_eq!(256, SABeatDetector::next_power_of_2(129));
-    }
 }
