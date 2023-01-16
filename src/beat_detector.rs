@@ -1,4 +1,4 @@
-use crate::audio_history::{AudioHistory, AUDIO_HISTORY_DEFAULT_BUFFER_SIZE};
+use crate::audio_history::{AudioHistory, AUDIO_HISTORY_DEFAULT_BUFFER_SIZE, AudioHistoryMeta};
 use crate::band_analyzer::BandAnalyzer;
 use crate::beat_info::FrequencyBand;
 use crate::envelope_detector::Envelope;
@@ -17,13 +17,18 @@ use core::cell::Cell;
 /// (drums/bass) or high beats (claps).
 #[derive(Debug)]
 pub struct BeatDetector {
-    /// Contains the recorded history of audio data.
-    audio_history: AudioHistory<AUDIO_HISTORY_DEFAULT_BUFFER_SIZE>,
+    /// Contains meta about the recorded history of audio data.
+    /// Always in sync with the [`AudioHistoryMeta`] in the corresponding instances of
+    /// [`BandAnalyzer`]. Lives inside the beat detector struct only for convenience. It is not
+    /// necessary to keep a copy of the original audio here. It is more efficient that the
+    /// [`BandAnalyzer`]
+    audio_history_meta: AudioHistoryMeta,
     /// Information about the previous 10 beats (if present).
     /// New elements are always `Some(T)`.
     // TODO use "ringbuffer"-crate or so instead of my specialized audio ring buffer impl
-    beat_history: RingBufferWithSerialSliceAccess<Option<Envelope>, 10>,
+    // beat_history: RingBufferWithSerialSliceAccess<Option<Envelope>, 10>,
     /// Tells if the value range was asserted.
+    // TODO remove
     assert_values_done: Cell<bool>,
     /// Analyzer that checks the input data for low frequency beats (bass).
     // The BandAnalyzer needs internal state; thus we can not recreate it on every callback
@@ -34,10 +39,9 @@ impl BeatDetector {
     /// Constructor.
     pub fn new(sampling_rate: f32) -> Self {
         let detector = Self {
-            audio_history: AudioHistory::new(sampling_rate),
-            beat_history: RingBufferWithSerialSliceAccess::new(),
+            audio_history_meta: AudioHistoryMeta::new(AUDIO_HISTORY_DEFAULT_BUFFER_SIZE, sampling_rate),
             assert_values_done: Cell::new(false),
-            low_band_analyzer: BandAnalyzer::new_low(sampling_rate),
+            low_band_analyzer: BandAnalyzer::new(20.0, 70.0, sampling_rate),
         };
         log::trace!(
             "BeatDetector consumes {} on the stack",
@@ -62,16 +66,14 @@ impl BeatDetector {
     pub fn on_new_audio(&mut self, new_audio_data: &[f32]) -> Option<BeatInfo> {
         self.assert_new_audio_data(new_audio_data);
         // updates internal time stats etc.
-        self.audio_history.update(new_audio_data);
+        self.audio_history_meta.update(new_audio_data);
 
-        let meta = self.audio_history.meta();
-        let envelope = self.low_band_analyzer.detect_envelope(
+        let envelope = self.low_band_analyzer.update_and_detect(
             new_audio_data,
-            &meta,
         )?;
 
         // TODO replace this by a better data structure.. odd to use an option here :(
-        self.beat_history.push(Some(envelope));
+        //self.beat_history.push(Some(envelope));
 
         // todo calc bpm
         Some(envelope).map(|env| BeatInfo::new(1, FrequencyBand::Low, env))
@@ -94,7 +96,7 @@ impl BeatDetector {
                 "the audio window is really small with {} samples",
                 new_audio_data.len()
             );
-        } else if new_audio_data.len() as f32 * self.audio_history.time_per_sample() as f32 > 0.1 {
+        } else if new_audio_data.len() as f32 * self.audio_history_meta.time_per_sample() as f32 > 0.1 {
             log::warn!(
                 "the audio window is really big with {} samples (more than 100ms!)",
                 new_audio_data.len()

@@ -1,6 +1,3 @@
-use crate::audio_history::AudioHistoryMeta;
-use crate::envelope_detector::{Envelope, EnvelopeDetector};
-use crate::util::RingBufferWithSerialSliceAccess;
 use biquad::{Biquad, DirectForm1, ToHertz, Type};
 
 /// A band filter composed around [`biquad`]: one high pass filter and one low pass filter.
@@ -59,8 +56,9 @@ impl BandPassFilter {
     }
 
     /// Constructor with default parameters for a low pass filter.
+    /// I found these values/bounds by looking at beats and their spectrum in audacity.
     pub fn new_low(sampling_rate: f32) -> Self {
-        Self::new(25.0, 70.0, sampling_rate)
+        Self::new(25.0, 85.0, sampling_rate)
     }
 
     /// Applies a sample to the band filter and returns the bandpassed sample.
@@ -75,6 +73,7 @@ impl BandPassFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_util::read_wav_to_mono;
 
     #[test]
     fn test_band_filter() {
@@ -148,5 +147,32 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[ignore]
+    #[test]
+    fn test_band_filter_on_wav_file() {
+        let (samples, wav_header) = read_wav_to_mono("res/sample_1.wav");
+        let mut band_pass_filter = BandPassFilter::new(80.0, 85.0, wav_header.sampling_rate as f32);
+
+        let band_passed_mono_samples = samples
+            .into_iter()
+            .map(|sample| band_pass_filter.apply(sample))
+            .collect::<std::vec::Vec<_>>();
+
+        let mut out_file = std::fs::File::create("__test_sample_1_mono_bandpass_filter_applied.wav").unwrap();
+        let header = wav::Header {
+            channel_count: 1,
+            ..wav_header
+        };
+
+        // wav::write(header, &BitDepth::ThirtyTwoFloat(audio), &mut out_file).unwrap();
+        // I don't know why but I can not get it work in float format.
+        let i32_vec = band_passed_mono_samples
+            .into_iter()
+            .map(|sample| (sample * i16::MAX as f32) as i16)
+            .collect();
+
+        wav::write(header, &wav::BitDepth::Sixteen(i32_vec), &mut out_file).unwrap();
     }
 }

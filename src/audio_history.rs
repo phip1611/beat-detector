@@ -137,7 +137,7 @@ pub struct AudioHistoryMeta {
 }
 
 impl AudioHistoryMeta {
-    fn new(buffer_capacity: usize, sampling_rate: f32) -> Self {
+    pub fn new(buffer_capacity: usize, sampling_rate: f32) -> Self {
         let time_per_sample = 1.0 / sampling_rate as f32;
         Self {
             buffer_capacity,
@@ -257,7 +257,7 @@ impl AudioHistoryMeta {
     /// Updates the internal state by receiving the next slice of new audio data.
     ///
     /// Uses the internal sampling rate as reference for calculations.
-    fn update(&mut self, samples: &[f32]) {
+    pub fn update(&mut self, samples: &[f32]) {
         let old_len = self.len();
 
         self.amount_new_samples_on_latest_update = samples.len();

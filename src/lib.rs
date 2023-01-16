@@ -49,6 +49,7 @@ extern crate std;
 extern crate alloc;
 
 mod audio_history;
+mod band_pass_filter;
 mod band_analyzer;
 mod beat_detector;
 mod beat_info;
