@@ -88,9 +88,6 @@ mod envelope_iterator;
 mod max_min_iterator;
 mod root_iterator;
 
-// Probably unneeded.
-// mod sample;
-
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
@@ -100,7 +97,6 @@ pub use audio_input::AudioInput;
 use envelope_iterator::EnvelopeIterator;
 use max_min_iterator::MaxMinIterator;
 use root_iterator::RootIterator;
-// use sample::Sample;
 
 #[cfg(test)]
 mod tests {
