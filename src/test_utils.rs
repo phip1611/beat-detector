@@ -53,6 +53,7 @@ fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<f32>, wav::Header) {
 /// individual data points.
 pub mod samples {
     use super::*;
+    use crate::audio_history::DEFAULT_AUDIO_HISTORY_WINDOW_MS;
 
     /// Returns the mono samples of the holiday sample (long version)
     /// together with the sampling rate.
@@ -98,39 +99,41 @@ pub mod samples {
             // sanity check.
             assert_eq!(header.sampling_rate, 44100);
 
-            println!("samples.len={}", samples.len());
-
             samples.len() as f32 / header.sampling_rate as f32
         }
 
-        assert_eq!(
-            to_duration_in_seconds(holiday_excerpt()),
-            0.035804987 /* seconds */
+        let duration = to_duration_in_seconds(holiday_excerpt());
+        assert_eq!(duration, 0.035804987 /* seconds */);
+        assert!(
+            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            "All test code relies on that this sample fully fits into the audio window!"
         );
 
-        assert_eq!(
-            to_duration_in_seconds(holiday_long()),
-            3.1764627 /* seconds */
+        let duration = to_duration_in_seconds(holiday_long());
+        assert_eq!(duration, 3.1764627 /* seconds */);
+
+        let duration = to_duration_in_seconds(holiday_single_beat());
+        assert_eq!(duration, 0.40773243 /* seconds */);
+        assert!(
+            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            "All test code relies on that this sample fully fits into the audio window!"
         );
 
-        assert_eq!(
-            to_duration_in_seconds(holiday_single_beat()),
-            0.40773243 /* seconds */
+        let duration = to_duration_in_seconds(sample1_long());
+        assert_eq!(duration, 7.998526 /* seconds */);
+
+        let duration = to_duration_in_seconds(sample1_single_beat());
+        assert_eq!(duration, 0.18380952 /* seconds */);
+        assert!(
+            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            "All test code relies on that this sample fully fits into the audio window!"
         );
 
-        assert_eq!(
-            to_duration_in_seconds(sample1_long()),
-            7.998526 /* seconds */
-        );
-
-        assert_eq!(
-            to_duration_in_seconds(sample1_single_beat()),
-            0.18380952 /* seconds */
-        );
-
-        assert_eq!(
-            to_duration_in_seconds(sample1_double_beat()),
-            0.41687074 /* seconds */
+        let duration = to_duration_in_seconds(sample1_double_beat());
+        assert_eq!(duration, 0.41687074 /* seconds */);
+        assert!(
+            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            "All test code relies on that this sample fully fits into the audio window!"
         );
     }
 }

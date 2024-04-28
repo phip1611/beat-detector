@@ -4,7 +4,8 @@ use core::time::Duration;
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 
 const SAFETY_BUFFER_FACTOR: f64 = 3.0;
-const SAFE_MIN_DURATION_MS: usize =
+/// Length in ms of the captured audio history used for analysis.
+pub(crate) const DEFAULT_AUDIO_HISTORY_WINDOW_MS: usize =
     (ENVELOPE_MIN_DURATION_MS as f64 * SAFETY_BUFFER_FACTOR) as usize;
 
 /// Based on the de-facto default sampling rate of 44100 Hz / 44.1 kHz.
@@ -14,7 +15,7 @@ const MS_PER_SECOND: usize = 1000;
 /// Default buffer size for [`AudioHistory`]. The size is a trade-off between
 /// memory efficiency and effectiveness in detecting envelops properly.
 pub const DEFAULT_BUFFER_SIZE: usize =
-    (SAFE_MIN_DURATION_MS * DEFAULT_SAMPLES_PER_SECOND) / MS_PER_SECOND;
+    (DEFAULT_AUDIO_HISTORY_WINDOW_MS * DEFAULT_SAMPLES_PER_SECOND) / MS_PER_SECOND;
 
 /// Sample info with time context.
 #[derive(Copy, Clone, Debug)]
