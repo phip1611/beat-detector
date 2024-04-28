@@ -101,6 +101,8 @@ impl AudioHistory {
             len += 1;
         });
 
+        self.total_consumed_samples += len;
+
         if len >= self.audio_buffer.capacity() {
             log::warn!(
                 "Adding {} samples to the audio buffer that only has a capacity for {} samples.",
@@ -114,8 +116,6 @@ impl AudioHistory {
                 self.audio_buffer.capacity()
             );
         }
-
-        self.total_consumed_samples += len;
     }
 
     /// Get the passed time in seconds.
