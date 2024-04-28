@@ -1,0 +1,78 @@
+name: Build
+
+# Triggers the workflow on push or pull request events (for any branch in a repository)
+on: [ push, pull_request, merge_group ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+          - 1.76.0 # MSRV
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install -y libasound2-dev
+      - run: cargo build --all-targets
+      - run: cargo test
+
+  build_nostd:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+          - 1.76.0 # MSRV
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install -y libasound2-dev
+      # install some no_std target
+      - run: rustup target add thumbv7em-none-eabihf
+      # Reset target-cpu=native .cargo/config.toml
+      - run: RUSTFLAGS="-C target-cpu=" cargo build --no-default-features --target thumbv7em-none-eabihf
+
+  style_checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install -y libasound2-dev
+      - name: rustfmt
+        run: cargo fmt -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features
+      - name: Rustdoc
+        run: cargo doc --no-deps --document-private-items  --all-features
