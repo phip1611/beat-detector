@@ -67,8 +67,8 @@ impl Iterator for EnvelopeIterator<'_> {
 
         // Skip noise.
         let envelope_begin = MaxMinIterator::new(self.buffer, Some(self.index))
-            .skip_while(|info| info.value.abs() < ENVELOPE_MIN_VALUE)
-            .next()?;
+            // Find the first item that is not noise.
+            .find(|info| info.value.abs() >= ENVELOPE_MIN_VALUE)?;
 
         // Update index to prevent unnecessary iterations on next
         // invocation.
@@ -165,22 +165,21 @@ fn find_descending_peak_trend_end(buffer: &AudioHistory, begin_index: usize) -> 
 
             let next_to_current_factor = val_next / val_curr;
             debug_assert!(next_to_current_factor > 1.0);
-            let nextnext_continues_descending_trend = next_to_current_factor
-                <= MAX_NEXT_TO_CURR_OUT_OF_LINE_FACTOR
-                && val_nextnext <= val_curr;
 
-            nextnext_continues_descending_trend
+            // nextnext continues descending trend
+            next_to_current_factor <= MAX_NEXT_TO_CURR_OUT_OF_LINE_FACTOR
+                && val_nextnext <= val_curr
         })
         .last()
         .map(|(current, _)| current)
 }
 
 /// Information about an envelope.
-#[derive(Clone, Copy, Debug, Default, Eq, Ord)]
+#[derive(Clone, Copy, Debug, Default, Eq)]
 pub struct EnvelopeInfo {
-    from: SampleInfo,
-    to: SampleInfo,
-    max: SampleInfo,
+    pub from: SampleInfo,
+    pub to: SampleInfo,
+    pub max: SampleInfo,
 }
 
 impl EnvelopeInfo {
@@ -207,7 +206,7 @@ impl EnvelopeInfo {
     /// |___|
     ///       |___|
     /// ```
-    pub fn overlap(&self, other: &Self) -> bool {
+    pub const fn overlap(&self, other: &Self) -> bool {
         let self_from = self.from.total_index;
         let self_to = self.to.total_index;
         let other_from = other.from.total_index;
@@ -230,7 +229,15 @@ impl EnvelopeInfo {
 
 impl PartialOrd for EnvelopeInfo {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.from.partial_cmp(&other.from)
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EnvelopeInfo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.from
+            .partial_cmp(&other.from)
+            .expect("Only valid f32 should be here.")
     }
 }
 

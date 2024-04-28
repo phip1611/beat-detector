@@ -73,7 +73,8 @@ SOFTWARE.
 #![allow(
     clippy::suboptimal_flops,
     clippy::redundant_pub_crate,
-    clippy::fallible_impl_from
+    clippy::fallible_impl_from,
+    clippy::multiple_crate_versions
 )]
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::all)]
@@ -87,16 +88,16 @@ mod envelope_iterator;
 mod max_min_iterator;
 mod root_iterator;
 
+mod beat_detector;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
-mod beat_detector;
 
 pub use audio_history::{AudioHistory, SampleInfo};
-pub use envelope_iterator::{EnvelopeIterator, EnvelopeInfo};
+pub use beat_detector::{AudioInput, BeatDetector, BeatInfo};
+pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
 use max_min_iterator::MaxMinIterator;
 use root_iterator::RootIterator;
-pub use beat_detector::{BeatDetector, BeatInfo, AudioInput};
 
 #[cfg(test)]
 mod tests {

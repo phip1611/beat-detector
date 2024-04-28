@@ -42,7 +42,7 @@ pub struct BeatDetector {
 
 impl BeatDetector {
     pub fn new(sampling_frequency_hz: f32) -> Self {
-        let lowpass_filter = BeatDetector::create_lowpass_filter(sampling_frequency_hz);
+        let lowpass_filter = Self::create_lowpass_filter(sampling_frequency_hz);
         Self {
             lowpass_filter,
             history: AudioHistory::new(sampling_frequency_hz),
@@ -59,9 +59,9 @@ impl BeatDetector {
     ///
     /// From experience, Linux audio input libraries give you a 20-40ms audio
     /// buffer every 20-40ms with the latest data. That's a good rule of thumb.
-    pub fn detect_beat<'a>(
+    pub fn detect_beat(
         &mut self,
-        input: AudioInput<'a, impl Iterator<Item = f32>>,
+        input: AudioInput<impl Iterator<Item = f32>>,
     ) -> Option<BeatInfo> {
         match input {
             AudioInput::SliceMono(slice) => {

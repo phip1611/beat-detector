@@ -23,7 +23,7 @@ impl<'a> MaxMinIterator<'a> {
     pub fn new(buffer: &'a AudioHistory, begin_index: Option<usize>) -> Self {
         let index = begin_index.unwrap_or(0);
         assert!(index < buffer.data().len());
-        let index = RootIterator::new(&buffer, Some(index))
+        let index = RootIterator::new(buffer, Some(index))
             .next()
             .map(|info| info.index)
             .unwrap_or(buffer.data().len() - 1);
@@ -42,7 +42,7 @@ impl Iterator for MaxMinIterator<'_> {
         }
 
         let begin_index = self.index;
-        let end_index = RootIterator::new(&self.buffer, Some(begin_index))
+        let end_index = RootIterator::new(self.buffer, Some(begin_index))
             .next()?
             .index;
         let sample_count = end_index - begin_index;

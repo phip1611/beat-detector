@@ -51,7 +51,7 @@ impl PartialEq for SampleInfo {
 
 impl PartialOrd for SampleInfo {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.total_index.partial_cmp(&other.total_index)
+        Some(self.cmp(other))
     }
 }
 
@@ -59,7 +59,9 @@ impl Eq for SampleInfo {}
 
 impl Ord for SampleInfo {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        self.total_index
+            .partial_cmp(&other.total_index)
+            .expect("Should be comparable")
     }
 }
 
@@ -87,14 +89,13 @@ impl AudioHistory {
 
     /// Update the audio history with fresh samples. The audio samples are
     /// expected to be in mono channel format.
-    pub fn update<'a, I: Iterator<Item = f32>>(&mut self, mono_samples_iter: I) {
+    pub fn update<I: Iterator<Item = f32>>(&mut self, mono_samples_iter: I) {
         let mut len = 0;
         mono_samples_iter
-            .inspect(|sample| {
+            .for_each(|sample| {
                 debug_assert!(sample.is_finite());
                 debug_assert!(sample.abs() <= 1.0);
-            })
-            .for_each(|sample| {
+
                 self.audio_buffer.push(sample);
                 len += 1;
             });
@@ -123,7 +124,7 @@ impl AudioHistory {
     }
 
     /// Access the underlying data storage.
-    pub fn data(&self) -> &ConstGenericRingBuffer<f32, DEFAULT_BUFFER_SIZE> {
+    pub const fn data(&self) -> &ConstGenericRingBuffer<f32, DEFAULT_BUFFER_SIZE> {
         &self.audio_buffer
     }
 
