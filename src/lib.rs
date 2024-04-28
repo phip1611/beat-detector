@@ -84,11 +84,12 @@ SOFTWARE.
 extern crate std;
 
 mod audio_history;
+mod beat_detector;
 mod envelope_iterator;
 mod max_min_iterator;
 mod root_iterator;
-
-mod beat_detector;
+#[cfg(feature = "std")]
+mod stdlib;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
@@ -96,6 +97,9 @@ mod test_utils;
 pub use audio_history::{AudioHistory, SampleInfo};
 pub use beat_detector::{AudioInput, BeatDetector, BeatInfo};
 pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
+#[cfg(feature = "std")]
+pub use std::*;
+
 use max_min_iterator::MaxMinIterator;
 use root_iterator::RootIterator;
 
