@@ -20,15 +20,15 @@ exclude = [
     ".github",
     "check-build.sh",
     "demo.gif",
-    "src/bin", # not supposed to be distributed+installable via cargo
+    "src/bin", # only internal binaries, if any
     "res"
 ]
 rust-version = "1.76.0"
 
 [features]
-default = ["recording"]
-std = []
-recording = ["std", "dep:cpal"]
+default = ["std"]
+std = ["recording"]
+recording = ["dep:cpal"]
 
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
