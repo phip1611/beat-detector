@@ -225,6 +225,12 @@ impl EnvelopeInfo {
     pub fn duration(&self) -> Duration {
         self.to.timestamp - self.from.timestamp
     }
+
+    /// The relative timestamp of the beat/the envelope since the beginning of
+    /// the audio recording.
+    pub const fn timestamp(&self) -> Duration {
+        self.max.timestamp
+    }
 }
 
 impl PartialOrd for EnvelopeInfo {

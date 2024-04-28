@@ -4,7 +4,7 @@ use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32
 use std::fmt::{Debug, Formatter};
 
 /// Cutoff frequency for the lowpass filter to detect beats.
-const CUTOFF_FREQUENCY_HZ: f32 = 80.0;
+const CUTOFF_FREQUENCY_HZ: f32 = 95.0;
 
 /// Information about a beat.
 pub type BeatInfo = EnvelopeInfo;
@@ -215,6 +215,10 @@ mod static_data_tests {
         assert_eq!(detector.history.data()[3], 0.3);
     }
 
+    /// This test serves as base so that the underlying functionality
+    /// (forwarding to envelope iterator, do not detect same beat twice) works.
+    /// It is not feasible to test the complex return type that way in every
+    /// test.
     #[test]
     #[allow(non_snake_case)]
     fn detect__static__no_lowpass__holiday_single_beat() {
@@ -236,82 +240,58 @@ mod static_data_tests {
                     index: 1971,
                     total_index: 1971,
                     timestamp: Duration::from_secs_f32(0.044693876),
-                    duration_behind: Duration::from_secs_f32(363.015872),
+                    duration_behind: Duration::from_secs_f32(0.363015872),
                 },
                 max: SampleInfo {
                     value: -0.6453749,
                     index: 830,
                     total_index: 830,
-                    timestamp: Duration::from_secs_f32(18.820861),
-                    duration_behind: Duration::from_secs_f32(388.888887),
+                    timestamp: Duration::from_secs_f32(0.018820861),
+                    duration_behind: Duration::from_secs_f32(0.388888887),
                 }
             })
         );
         assert_eq!(detector.update_and_detect_beat(AudioInput::empty()), None);
     }
-    /*
+
     #[test]
-    fn find_beats_sample1_double_beat() {
-        let (samples, header) = test_utils::samples::sample1_double_beat();
-        let mut detector = BeatDetector::new(header.sampling_rate as f32);
+    #[allow(non_snake_case)]
+    fn detect__static__lowpass__holiday_single_beat() {
+        let (samples, header) = test_utils::samples::holiday_single_beat();
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
         let input = AudioInput::<StubIterator>::SliceMono(samples.as_slice());
         assert_eq!(
-            detector.detect_beat(input),
-            Some(EnvelopeInfo {
-                from: SampleInfo {
-                    value: -0.21601434,
-                    index: 822,
-                    total_index: 822,
-                    timestamp: Duration::from_secs_f32(0.018639455),
-                    duration_behind: Duration::from_secs_f32(0.398208608)
-                },
-                to: SampleInfo {
-                    value: -0.10831339,
-                    index: 17415,
-                    total_index: 17415,
-                    timestamp: Duration::from_secs_f32(0.394897938),
-                    duration_behind: Duration::from_secs_f32(0.021950125)
-                },
-                max: SampleInfo {
-                    value: 0.41667685,
-                    index: 9133,
-                    total_index: 9133,
-                    timestamp: Duration::from_secs_f32(0.207097501),
-                    duration_behind: Duration::from_secs_f32(0.209750562)
-                }
+            detector
+                .update_and_detect_beat(input)
+                .map(|info| info.max.index),
+            // It seems that the lowpass filter causes a slight delay. This
+            // is also what my reasearch found [0].
+            //
+            // As long as it is reasonable small, I think this is good, I guess?
+            // [0]: https://electronics.stackexchange.com/questions/372692/low-pass-filter-delay
+            Some(942)
+        );
+        assert_eq!(detector.update_and_detect_beat(AudioInput::empty()), None);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn detect__dynamic__no_lowpass__holiday_single_beat() {
+        let (samples, header) = test_utils::samples::holiday_single_beat();
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+
+        let beats = samples
+            .chunks(256)
+            .map(|samples| {
+                let input = AudioInput::<StubIterator>::SliceMono(samples);
+                detector
+                    .update_and_detect_beat(input)
+                    .map(|info| info.max.total_index)
             })
-        );
-        let input = AudioInput::<StubIterator>::SliceMono([].as_slice());
-        assert_eq!(
-            detector.detect_beat(input),
-            Some(EnvelopeInfo {
-                from: SampleInfo {
-                    value: -0.21601434,
-                    index: 822,
-                    total_index: 822,
-                    timestamp: Duration::from_secs_f32(0.018639455),
-                    duration_behind: Duration::from_secs_f32(0.398208608)
-                },
-                to: SampleInfo {
-                    value: -0.10831339,
-                    index: 17415,
-                    total_index: 17415,
-                    timestamp: Duration::from_secs_f32(0.394897938),
-                    duration_behind: Duration::from_secs_f32(0.021950125)
-                },
-                max: SampleInfo {
-                    value: 0.41667685,
-                    index: 9133,
-                    total_index: 9133,
-                    timestamp: Duration::from_secs_f32(0.207097501),
-                    duration_behind: Duration::from_secs_f32(0.209750562)
-                }
-            })
-        );
-        let input = AudioInput::<StubIterator>::SliceMono([].as_slice());
-        assert_eq!(
-            detector.detect_beat(input),
-            None /* there are only two beats in that sample */
-        );
-    }*/
+            .filter_map(|info| info)
+            .collect::<std::vec::Vec<_>>();
+
+        // NICE! This equals what the static example above shows. This works!
+        assert_eq!(beats, &[830]);
+    }
 }
