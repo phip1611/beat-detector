@@ -73,7 +73,7 @@ impl Ord for SampleInfo {
 #[derive(Debug)]
 pub struct AudioHistory {
     audio_buffer: ConstGenericRingBuffer<f32, DEFAULT_BUFFER_SIZE>,
-    total_consumed_items: usize,
+    total_consumed_samples: usize,
     time_per_sample: f32,
 }
 
@@ -84,7 +84,7 @@ impl AudioHistory {
         Self {
             audio_buffer,
             time_per_sample: 1.0 / sampling_frequency,
-            total_consumed_items: 0,
+            total_consumed_samples: 0,
         }
     }
 
@@ -92,14 +92,13 @@ impl AudioHistory {
     /// expected to be in mono channel format.
     pub fn update<I: Iterator<Item = f32>>(&mut self, mono_samples_iter: I) {
         let mut len = 0;
-        mono_samples_iter
-            .for_each(|sample| {
-                debug_assert!(sample.is_finite());
-                debug_assert!(sample.abs() <= 1.0);
+        mono_samples_iter.for_each(|sample| {
+            debug_assert!(sample.is_finite());
+            debug_assert!(sample.abs() <= 1.0);
 
-                self.audio_buffer.push(sample);
-                len += 1;
-            });
+            self.audio_buffer.push(sample);
+            len += 1;
+        });
 
         if len >= self.audio_buffer.capacity() {
             log::warn!(
@@ -115,12 +114,12 @@ impl AudioHistory {
             );
         }
 
-        self.total_consumed_items += len;
+        self.total_consumed_samples += len;
     }
 
     /// Get the passed time in seconds.
     pub fn passed_time(&self) -> Duration {
-        let seconds = self.time_per_sample * self.total_consumed_items as f32;
+        let seconds = self.time_per_sample * self.total_consumed_samples as f32;
         Duration::from_secs_f32(seconds)
     }
 
@@ -145,6 +144,30 @@ impl AudioHistory {
         }
     }
 
+    /// Returns the index in the current captured audio window from the total
+    /// index of the given sample, if present.
+    pub fn total_index_to_index(&self, total_index: usize) -> Option<usize> {
+        // TODO this looks way to complicated. Probably can be simplified.
+        if self.lost_samples() == 0 {
+            if total_index < self.total_consumed_samples {
+                Some(total_index)
+            } else {
+                None
+            }
+        } else {
+            if total_index < self.lost_samples() {
+                None
+            } else {
+                let index = total_index - self.lost_samples();
+                if index <= self.data().capacity() {
+                    Some(index)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     /// Returns the sample number that an index belongs to. Note that a higher
     /// index and a higher sample number means fresher data.
     ///
@@ -159,10 +182,10 @@ impl AudioHistory {
     /// Returns the amount of lost samples, i.e., samples that are no in the
     /// underlying ringbuffer anymore.
     fn lost_samples(&self) -> usize {
-        if self.total_consumed_items <= self.data().capacity() {
+        if self.total_consumed_samples <= self.data().capacity() {
             0
         } else {
-            self.total_consumed_items - self.data().capacity()
+            self.total_consumed_samples - self.data().capacity()
         }
     }
 
@@ -170,7 +193,7 @@ impl AudioHistory {
     /// it is in the range.
     #[inline]
     fn timestamp_of_sample(&self, sample_num: usize) -> Duration {
-        if sample_num > self.total_consumed_items {
+        if sample_num > self.total_consumed_samples {
             return Duration::default();
         };
 
@@ -209,14 +232,14 @@ mod tests {
     #[test]
     fn audio_duration_is_updated_properly() {
         let mut hist = AudioHistory::new(2.0);
-        assert_eq!(hist.total_consumed_items, 0);
+        assert_eq!(hist.total_consumed_samples, 0);
 
         hist.update([0.0].iter().copied());
-        assert_eq!(hist.total_consumed_items, 1);
+        assert_eq!(hist.total_consumed_samples, 1);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(0.5));
 
         hist.update([0.0, 0.0].iter().copied());
-        assert_eq!(hist.total_consumed_items, 3);
+        assert_eq!(hist.total_consumed_samples, 3);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(1.5));
     }
 
@@ -373,6 +396,26 @@ mod tests {
                 total_index: 10,
                 ..Default::default()
             }
+        );
+    }
+
+    #[test]
+    fn total_index_to_index_works() {
+        let mut history = AudioHistory::new(1.0);
+        for i in 0..history.data().capacity() {
+            assert_eq!(history.total_index_to_index(i), None);
+            history.update([0.0].iter().copied());
+            assert_eq!(history.total_index_to_index(i), Some(i));
+        }
+
+        history.update([0.0].iter().copied());
+        // No longer existing.
+        assert_eq!(history.total_index_to_index(0), None);
+        assert_eq!(history.total_index_to_index(1), Some(0));
+        assert_eq!(history.total_index_to_index(2), Some(1));
+        assert_eq!(
+            history.total_index_to_index(history.total_consumed_samples),
+            Some(history.data().capacity())
         );
     }
 }
