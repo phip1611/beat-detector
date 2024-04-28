@@ -167,7 +167,11 @@ impl BeatDetector {
 
 #[cfg(test)]
 mod tests {
-    use crate::BeatDetector;
+    use super::*;
+    use crate::{test_utils, SampleInfo};
+    use ringbuffer::RingBuffer;
+    use std::time::Duration;
+    use std::vec::Vec;
 
     #[test]
     fn is_send_and_sync() {
@@ -175,17 +179,6 @@ mod tests {
 
         accept::<BeatDetector>();
     }
-}
-
-/// Here, I run "static" tests against the beat detector. This means, the whole
-/// waveform is loaded at once into the internal buffer. I expect the same
-/// results as for the EnvelopeIterator unit tests.
-#[cfg(test)]
-mod static_data_tests {
-    use super::*;
-    use crate::{test_utils, SampleInfo};
-    use ringbuffer::RingBuffer;
-    use std::time::Duration;
 
     /// Tests that the audio input consomption with all possible variants
     /// properly works.
@@ -274,14 +267,13 @@ mod static_data_tests {
         assert_eq!(detector.update_and_detect_beat(AudioInput::empty()), None);
     }
 
-    #[test]
-    #[allow(non_snake_case)]
-    fn detect__dynamic__no_lowpass__holiday_single_beat() {
-        let (samples, header) = test_utils::samples::holiday_single_beat();
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
-
-        let beats = samples
-            .chunks(256)
+    fn simulate_dynamic_audio_source(
+        chunk_size: usize,
+        samples: &[f32],
+        detector: &mut BeatDetector,
+    ) -> Vec<usize> {
+        samples
+            .chunks(chunk_size)
             .map(|samples| {
                 let input = AudioInput::<StubIterator>::SliceMono(samples);
                 detector
@@ -289,9 +281,72 @@ mod static_data_tests {
                     .map(|info| info.max.total_index)
             })
             .filter_map(|info| info)
-            .collect::<std::vec::Vec<_>>();
+            .collect::<std::vec::Vec<_>>()
+    }
 
-        // NICE! This equals what the static example above shows. This works!
-        assert_eq!(beats, &[830]);
+    #[test]
+    #[allow(non_snake_case)]
+    fn detect__dynamic__no_lowpass__holiday_single_beat() {
+        let (samples, header) = test_utils::samples::holiday_single_beat();
+
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        assert_eq!(
+            simulate_dynamic_audio_source(256, &samples, &mut detector),
+            &[830]
+        );
+
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        assert_eq!(
+            simulate_dynamic_audio_source(2048, &samples, &mut detector),
+            &[830]
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn detect__dynamic__no_lowpass__sample1_double_beat() {
+        let (samples, header) = test_utils::samples::sample1_double_beat();
+
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        assert_eq!(
+            simulate_dynamic_audio_source(2048, &samples, &mut detector),
+            &[1310, 8639]
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn detect__dynamic__lowpass__sample1_long() {
+        let (samples, header) = test_utils::samples::sample1_long();
+
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
+        assert_eq!(
+            simulate_dynamic_audio_source(2048, &samples, &mut detector),
+            &[12936, 93794, 101457, 189599, 270784, 278469]
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn detect__dynamic__no_lowpass__holiday_long() {
+        let (samples, header) = test_utils::samples::holiday_long();
+
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        assert_eq!(
+            simulate_dynamic_audio_source(2048, &samples, &mut detector),
+            &[29077, 31225, 47052, 65812, 83769, 101994, 120138, 138130]
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn detect__dynamic__lowpass__holiday_long() {
+        let (samples, header) = test_utils::samples::holiday_long();
+
+        let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
+        assert_eq!(
+            simulate_dynamic_audio_source(2048, &samples, &mut detector),
+            &[31334, 47164, 65922, 84221, 102108, 120247, 138561]
+        );
     }
 }
