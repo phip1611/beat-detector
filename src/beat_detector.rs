@@ -189,6 +189,8 @@ impl BeatDetector {
 }
 
 #[cfg(test)]
+#[allow(clippy::excessive_precision)]
+#[allow(clippy::missing_const_for_fn)]
 mod tests {
     use super::*;
     use crate::{test_utils, SampleInfo};
@@ -218,7 +220,7 @@ mod tests {
         let _ = detector.update_and_detect_beat(input);
         assert_eq!(detector.history.data().len(), 3);
 
-        let input = AudioInput::<_>::Iterator([0.3].iter().copied());
+        let input = AudioInput::<_>::Iterator(core::iter::once(0.3));
         let _ = detector.update_and_detect_beat(input);
         assert_eq!(detector.history.data().len(), 4);
 
@@ -297,13 +299,12 @@ mod tests {
     ) -> Vec<usize> {
         samples
             .chunks(chunk_size)
-            .map(|samples| {
+            .flat_map(|samples| {
                 let input = AudioInput::<StubIterator>::SliceMono(samples);
                 detector
                     .update_and_detect_beat(input)
                     .map(|info| info.max.total_index)
             })
-            .filter_map(|info| info)
             .collect::<std::vec::Vec<_>>()
     }
 
