@@ -95,7 +95,7 @@ mod stdlib;
 mod test_utils;
 
 pub use audio_history::{AudioHistory, SampleInfo};
-pub use beat_detector::{AudioInput, BeatDetector, BeatInfo};
+pub use beat_detector::{AudioInput, BeatDetector, BeatInfo, StubIterator};
 pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
 #[cfg(feature = "std")]
 pub use std::*;

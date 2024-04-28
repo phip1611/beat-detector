@@ -30,6 +30,10 @@ default = ["std"]
 std = ["recording"]
 recording = ["dep:cpal"]
 
+[[bench]]
+name = "beat_detection_bench"
+harness = false
+
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
 
@@ -42,10 +46,9 @@ ringbuffer = "0.15.0"
 cpal = { version = "0.15", optional = true }
 
 [dev-dependencies]
-# read .wav audio files in tests
-wav = "1.0"
-# for examples
 ctrlc = { version = "3.4", features = ["termination"] }
+criterion = { version = "0.5", features = [] }
+wav = "1.0"
 
 [profile.dev]
 # otherwise many code is too slow
