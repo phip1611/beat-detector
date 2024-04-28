@@ -33,8 +33,7 @@ const CUTOFF_FREQUENCY_HZ: f32 = 95.0;
 pub type BeatInfo = EnvelopeInfo;
 
 /// No-op type helper for [`AudioInput`] that is needed as default generic type.
-/// Use this when you use [`AudioInput::SliceMono`] or
-/// [`AudioInput::SliceStereo`].
+/// Use this when you using [`AudioInput::SliceMono`] or [`AudioInput::SliceStereo`].
 #[derive(Debug)]
 pub struct StubIterator;
 
