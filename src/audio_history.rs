@@ -118,7 +118,7 @@ impl AudioHistory {
         let mut len = 0;
         mono_samples_iter.for_each(|sample| {
             debug_assert!(sample.is_finite());
-            debug_assert!(sample.abs() <= 1.0);
+            debug_assert!(libm::fabsf(sample) <= 1.0);
 
             self.audio_buffer.push(sample);
             len += 1;

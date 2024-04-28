@@ -113,7 +113,7 @@ mod tests {
 
         let all_peaks = MaxMinIterator::new(&history, None).collect::<Vec<_>>();
 
-        let abs_peak_value_iter = all_peaks.iter().map(|x| x.value.abs());
+        let abs_peak_value_iter = all_peaks.iter().map(|x| libm::fabsf(x.value));
 
         let max: f32 = abs_peak_value_iter
             .clone()
@@ -128,9 +128,9 @@ mod tests {
         let avg: f32 = abs_peak_value_iter.reduce(|a, b| a + b).unwrap() / all_peaks.len() as f32;
 
         let mut all_peaks_sorted = all_peaks.clone();
-        all_peaks_sorted.sort_by(|a, b| a.value.abs().partial_cmp(&b.value.abs()).unwrap());
+        all_peaks_sorted.sort_by(|a, b| libm::fabsf(a.value).partial_cmp(&libm::fabsf(b.value)).unwrap());
 
-        let median: f32 = all_peaks_sorted[all_peaks_sorted.len() / 2].value.abs();
+        let median: f32 = libm::fabsf(all_peaks_sorted[all_peaks_sorted.len() / 2].value);
 
         eprintln!("max abs peak     : {max:.3}");
         eprintln!("min abs peak     : {min:.3}");
@@ -142,7 +142,7 @@ mod tests {
             "peaks abs        : {:#.3?}",
             all_peaks
                 .iter()
-                .map(|info| info.value.abs())
+                .map(|info| libm::fabsf(info.value))
                 .collect::<Vec<_>>()
         );
         eprintln!(
@@ -150,7 +150,7 @@ mod tests {
             all_peaks
                 .iter()
                 .zip(all_peaks.iter().skip(1))
-                .map(|(current, next)| { next.value.abs() / current.value.abs() })
+                .map(|(current, next)| { libm::fabsf(next.value) / libm::fabsf(current.value) })
                 .collect::<Vec<_>>()
         );
     }

@@ -91,7 +91,7 @@ impl Iterator for EnvelopeIterator<'_> {
         // Skip noise.
         let envelope_begin = MaxMinIterator::new(self.buffer, Some(self.index))
             // Find the first item that is not noise.
-            .find(|info| info.value.abs() >= ENVELOPE_MIN_VALUE)?;
+            .find(|info| libm::fabsf(info.value) >= ENVELOPE_MIN_VALUE)?;
 
         // Update index to prevent unnecessary iterations on next
         // invocation.
@@ -111,7 +111,7 @@ impl Iterator for EnvelopeIterator<'_> {
             MaxMinIterator::new(self.buffer, None /* avg calc over whole history */);
         let peaks_count = all_peaks_iter.clone().count() as f32;
         let peaks_sum = all_peaks_iter
-            .map(|info| info.value.abs())
+            .map(|info| libm::fabsf(info.value))
             .reduce(|a, b| a + b)?;
         let peaks_avg = peaks_sum / peaks_count;
 
@@ -122,22 +122,14 @@ impl Iterator for EnvelopeIterator<'_> {
         // Find max of envelope.
         let envelope_max = MaxMinIterator::new(self.buffer, Some(envelope_begin.index + 1))
             // ignore irrelevant peaks
-            .skip_while(|info| info.value.abs() / peaks_avg < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
+            .skip_while(|info| libm::fabsf(info.value) / peaks_avg < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
             // look at interesting peaks
-            .take_while(|info| info.value.abs() / peaks_avg >= ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
+            .take_while(|info| libm::fabsf(info.value) / peaks_avg >= ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
             // get the maximum
-            .reduce(|a, b| if a.value.abs() > b.value.abs() { a } else { b })?;
+            .reduce(|a, b| if libm::fabsf(a.value) > libm::fabsf(b.value) { a } else { b })?;
 
         // Find end of envelope.
         let envelope_end = find_descending_peak_trend_end(self.buffer, envelope_max.index)?;
-        /*
-        // Now consume
-        .take_while(|(_, next)| {
-            let next_peak_to_target_ratio = next.value.abs() / peaks_avg;
-            let next_peak_below_target_ratio =
-                next_peak_to_target_ratio < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO;
-            next_peak_below_target_ratio
-        })*/
 
         // #####################################################################
         // FINALIZE
@@ -148,6 +140,7 @@ impl Iterator for EnvelopeIterator<'_> {
             max: envelope_max,
         };
 
+        // TODO do I need this?
         /*if envelope.duration() < ENVELOPE_MIN_DURATION {
             return None;
         }*/
@@ -177,9 +170,9 @@ fn find_descending_peak_trend_end(buffer: &AudioHistory, begin_index: usize) -> 
         .clone()
         .zip(peak_iter.clone().skip(1).zip(peak_iter.skip(2)))
         .take_while(|(current, (next, nextnext))| {
-            let val_curr = current.value.abs();
-            let val_next = next.value.abs();
-            let val_nextnext = nextnext.value.abs();
+            let val_curr = libm::fabsf(current.value);
+            let val_next = libm::fabsf(next.value);
+            let val_nextnext = libm::fabsf(nextnext.value);
 
             let next_is_descending = val_next <= val_curr;
             if next_is_descending {

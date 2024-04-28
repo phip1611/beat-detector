@@ -59,7 +59,7 @@ impl Iterator for RootIterator<'_> {
 
         let next_root = create_iter()
             .zip(create_iter().skip(1))
-            .skip_while(|((_, &current), _)| current.abs() < IGNORE_NOISE_THRESHOLD)
+            .skip_while(|((_, &current), _)| libm::fabsf(current) < IGNORE_NOISE_THRESHOLD)
             .skip_while(|((_, &current), (_, &next))| {
                 // skip while we don't cross the y-axis
                 (current < 0.0 && next < 0.0) || (current > 0.0 && next > 0.0)

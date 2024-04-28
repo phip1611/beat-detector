@@ -79,7 +79,7 @@ impl Iterator for MaxMinIterator<'_> {
             .skip(begin_index)
             .take(sample_count)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
-                if x_value.abs() > y_value.abs() {
+                if libm::fabsf(x_value) > libm::fabsf(y_value) {
                     Ordering::Greater
                 } else {
                     Ordering::Less

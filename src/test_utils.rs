@@ -53,7 +53,7 @@ fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<f32>, wav::Header) {
     };
 
     assert!(
-        !original_data_f32.iter().any(|x| x.abs() > 1.0),
+        !original_data_f32.iter().any(|&x| libm::fabsf(x) > 1.0),
         "float audio data must be in interval [-1, 1]."
     );
 
