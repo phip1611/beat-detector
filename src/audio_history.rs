@@ -147,23 +147,21 @@ impl AudioHistory {
     /// Returns the index in the current captured audio window from the total
     /// index of the given sample, if present.
     pub fn total_index_to_index(&self, total_index: usize) -> Option<usize> {
-        // TODO this looks way to complicated. Probably can be simplified.
+        // TODO this looks way too complicated. Probably can be simplified.
         if self.lost_samples() == 0 {
             if total_index < self.total_consumed_samples {
                 Some(total_index)
             } else {
                 None
             }
+        } else if total_index < self.lost_samples() {
+            None
         } else {
-            if total_index < self.lost_samples() {
-                None
+            let index = total_index - self.lost_samples();
+            if index <= self.data().capacity() {
+                Some(index)
             } else {
-                let index = total_index - self.lost_samples();
-                if index <= self.data().capacity() {
-                    Some(index)
-                } else {
-                    None
-                }
+                None
             }
         }
     }
