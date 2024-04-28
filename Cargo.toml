@@ -23,7 +23,7 @@ exclude = [
     "src/bin", # not supposed to be distributed+installable via cargo
     "res"
 ]
-rust-version = "1.71.0" # TODO real MSRV
+rust-version = "1.76.0"
 
 [features]
 default = ["recording"]
