@@ -83,7 +83,6 @@ SOFTWARE.
 extern crate std;
 
 mod audio_history;
-mod audio_input;
 mod envelope_iterator;
 mod max_min_iterator;
 mod root_iterator;
@@ -91,12 +90,13 @@ mod root_iterator;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
+mod beat_detector;
 
 pub use audio_history::{AudioHistory, SampleInfo};
-pub use audio_input::AudioInput;
-use envelope_iterator::EnvelopeIterator;
+pub use envelope_iterator::{EnvelopeIterator, EnvelopeInfo};
 use max_min_iterator::MaxMinIterator;
 use root_iterator::RootIterator;
+pub use beat_detector::{BeatDetector, BeatInfo, AudioInput};
 
 #[cfg(test)]
 mod tests {
@@ -108,7 +108,7 @@ mod tests {
 
     fn _print_sample_stats((samples, header): (Vec<f32>, wav::Header)) {
         let mut history = AudioHistory::new(header.sampling_rate as f32);
-        history.update(&samples);
+        history.update(samples.iter().copied());
 
         let all_peaks = MaxMinIterator::new(&history, None).collect::<Vec<_>>();
 

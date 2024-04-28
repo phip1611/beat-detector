@@ -80,7 +80,7 @@ mod tests {
     fn find_maxmin_in_holiday_excerpt() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
         let mut history = AudioHistory::new(header.sampling_rate as f32);
-        history.update(&samples);
+        history.update(samples.iter().copied());
 
         let iter = MaxMinIterator::new(&history, None);
         #[rustfmt::skip]
@@ -102,7 +102,7 @@ mod tests {
     fn find_maxmin_in_sample1_single_beat() {
         let (samples, header) = test_utils::samples::sample1_single_beat();
         let mut history = AudioHistory::new(header.sampling_rate as f32);
-        history.update(&samples);
+        history.update(samples.iter());
 
         let iter = MaxMinIterator::new(&history, None);
         #[rustfmt::skip]

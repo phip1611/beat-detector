@@ -86,29 +86,34 @@ impl AudioHistory {
     }
 
     /// Update the audio history with fresh samples. The audio samples are
-    /// expected to be in mono channel, i.e., no stereo interleaving
-    /// TODO: Update consume iterator and consume enum: Interleaved or Mono
-    pub fn update(&mut self, mono_samples: &[f32]) {
-        if mono_samples.len() >= self.audio_buffer.capacity() {
+    /// expected to be in mono channel format.
+    pub fn update<'a, I: Iterator<Item = f32>>(&mut self, mono_samples_iter: I) {
+        let mut len = 0;
+        mono_samples_iter
+            .inspect(|sample| {
+                debug_assert!(sample.is_finite());
+                debug_assert!(sample.abs() <= 1.0);
+            })
+            .for_each(|sample| {
+                self.audio_buffer.push(sample);
+                len += 1;
+            });
+
+        if len >= self.audio_buffer.capacity() {
             log::warn!(
                 "Adding {} samples to the audio buffer that only has a capacity for {} samples.",
-                mono_samples.len(),
+                len,
                 self.audio_buffer.capacity()
             );
             #[cfg(test)]
             std::eprintln!(
                 "WARN: AudioHistory::update: Adding {} samples to the audio buffer that only has a capacity for {} samples.",
-                mono_samples.len(),
+                len,
                 self.audio_buffer.capacity()
             );
         }
 
-        for &sample in mono_samples {
-            debug_assert!(sample.is_finite());
-            debug_assert!(sample.abs() <= 1.0);
-            self.audio_buffer.push(sample);
-        }
-        self.total_consumed_items += mono_samples.len();
+        self.total_consumed_items += len;
     }
 
     /// Get the passed time in seconds.
@@ -204,11 +209,11 @@ mod tests {
         let mut hist = AudioHistory::new(2.0);
         assert_eq!(hist.total_consumed_items, 0);
 
-        hist.update(&[0.0]);
+        hist.update([0.0].iter().copied());
         assert_eq!(hist.total_consumed_items, 1);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(0.5));
 
-        hist.update(&[0.0, 0.0]);
+        hist.update([0.0, 0.0].iter().copied());
         assert_eq!(hist.total_consumed_items, 3);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(1.5));
     }
@@ -222,12 +227,12 @@ mod tests {
             .map(|x| x as f32 / (DEFAULT_BUFFER_SIZE + 10) as f32)
             .collect::<Vec<_>>();
 
-        hist.update(&test_data[0..10]);
+        hist.update(test_data[0..10].iter().copied());
         assert_eq!(hist.index_to_sample_number(0), 0);
         assert_eq!(hist.index_to_sample_number(10), 10);
 
         // now the buffer is full, but no overflow yet
-        hist.update(&test_data[10..DEFAULT_BUFFER_SIZE]);
+        hist.update(test_data[10..DEFAULT_BUFFER_SIZE].iter().copied());
         assert_eq!(hist.index_to_sample_number(0), 0);
         assert_eq!(hist.index_to_sample_number(10), 10);
         assert_eq!(
@@ -236,7 +241,11 @@ mod tests {
         );
 
         // now the buffer overflowed
-        hist.update(&test_data[DEFAULT_BUFFER_SIZE..DEFAULT_BUFFER_SIZE + 10]);
+        hist.update(
+            test_data[DEFAULT_BUFFER_SIZE..DEFAULT_BUFFER_SIZE + 10]
+                .iter()
+                .copied(),
+        );
         assert_eq!(hist.index_to_sample_number(0), 10);
         assert_eq!(hist.index_to_sample_number(10), 20);
         assert_eq!(
@@ -255,17 +264,21 @@ mod tests {
             .map(|x| x as f32 / (DEFAULT_BUFFER_SIZE + 10) as f32)
             .collect::<Vec<_>>();
 
-        hist.update(&test_data[0..10]);
+        hist.update(test_data[0..10].iter().copied());
         assert_eq!(hist.timestamp_of_index(0), Duration::from_secs_f32(0.0));
         assert_eq!(hist.timestamp_of_index(10), Duration::from_secs_f32(5.0));
 
         // now the buffer is full, but no overflow yet
-        hist.update(&test_data[10..DEFAULT_BUFFER_SIZE]);
+        hist.update(test_data[10..DEFAULT_BUFFER_SIZE].iter().copied());
         assert_eq!(hist.timestamp_of_index(0), Duration::from_secs_f32(0.0));
         assert_eq!(hist.timestamp_of_index(10), Duration::from_secs_f32(5.0));
 
         // now the buffer overflowed
-        hist.update(&test_data[DEFAULT_BUFFER_SIZE..DEFAULT_BUFFER_SIZE + 10]);
+        hist.update(
+            test_data[DEFAULT_BUFFER_SIZE..DEFAULT_BUFFER_SIZE + 10]
+                .iter()
+                .copied(),
+        );
         assert_eq!(hist.timestamp_of_index(0), Duration::from_secs_f32(5.0));
         assert_eq!(hist.timestamp_of_index(10), Duration::from_secs_f32(10.0));
     }
@@ -275,7 +288,7 @@ mod tests {
         let (samples, header) = crate::test_utils::samples::sample1_long();
 
         let mut history = AudioHistory::new(header.sampling_rate as f32);
-        history.update(&samples);
+        history.update(samples.iter().copied());
 
         assert_eq!(
             (history.passed_time().as_secs_f32() * 1000.0).round() / 1000.0,
@@ -293,12 +306,12 @@ mod tests {
     fn sample_info() {
         let mut hist = AudioHistory::new(1.0);
 
-        hist.update(&[0.0]);
+        hist.update([0.0].iter().copied());
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs(0)
         );
-        hist.update(&[0.0]);
+        hist.update([0.0].iter().copied());
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs(1)
@@ -308,7 +321,7 @@ mod tests {
             Duration::from_secs(0)
         );
 
-        hist.update(&[0.0].repeat(hist.data().capacity() * 2));
+        hist.update([0.0].repeat(hist.data().capacity() * 2).iter().copied());
 
         let sample = hist.index_to_sample_info(0);
         assert_eq!(
