@@ -323,7 +323,6 @@ mod tests {
 
         hist.update([0.0].repeat(hist.data().capacity() * 2).iter().copied());
 
-        let sample = hist.index_to_sample_info(0);
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs_f32((DEFAULT_BUFFER_SIZE - 1) as f32)

@@ -1,5 +1,5 @@
+use crate::MaxMinIterator;
 use crate::{AudioHistory, SampleInfo};
-use crate::{AudioInput, MaxMinIterator};
 use core::cmp::Ordering;
 use core::time::Duration;
 use ringbuffer::RingBuffer;

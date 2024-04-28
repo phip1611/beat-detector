@@ -1,6 +1,6 @@
 use crate::EnvelopeInfo;
 use crate::{AudioHistory, EnvelopeIterator};
-use biquad::{coefficients, Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
+use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
 use std::fmt::{Debug, Formatter};
 
 /// Cutoff frequency for the lowpass filter to detect beats.
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn is_send_and_sync() {
-        fn accept<I: Send + Sync>() {};
+        fn accept<I: Send + Sync>() {}
 
         accept::<BeatDetector>();
     }
