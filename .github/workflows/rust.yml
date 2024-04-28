@@ -1,7 +1,7 @@
 name: Build
 
 # Triggers the workflow on push or pull request events (for any branch in a repository)
-on: [ push, pull_request ]
+on: [ push, pull_request, merge_group ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,16 +16,16 @@ jobs:
           - nightly
           - 1.59.0 # MSRV
     steps:
-      - uses: actions/checkout@v2
-      # Important preparation step: override the latest default Rust version in GitHub CI
-      # with the current value of the iteration in the "strategy.matrix.rust"-array.
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: default
           toolchain: ${{ matrix.rust }}
-          override: true
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
       # required because of "cpal"
-      - run: sudo apt update && sudo apt install libasound2-dev -y
+      - run: sudo apt update && sudo apt install -y libasound2-dev
       - run: cargo build --all-targets
       - run: cargo test
 
@@ -38,42 +38,20 @@ jobs:
           - nightly
           - 1.59.0 # MSRV
     steps:
-      - uses: actions/checkout@v2
-      # Important preparation step: override the latest default Rust version in GitHub CI
-      # with the current value of the iteration in the "strategy.matrix.rust"-array.
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: default
           toolchain: ${{ matrix.rust }}
-          override: true
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
       # required because of "cpal"
-      - run: sudo apt update && sudo apt install libasound2-dev -y
+      - run: sudo apt update && sudo apt install -y libasound2-dev
       # install some no_std target
       - run: rustup target add thumbv7em-none-eabihf
-      # reset CPU=native
+      # Reset target-cpu=native .cargo/config.toml
       - run: RUSTFLAGS="-C target-cpu=" cargo build --no-default-features --target thumbv7em-none-eabihf
-
-  build_external_examples:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - nightly
-          - 1.59.0 # MSRV
-    steps:
-      - uses: actions/checkout@v2
-      # Important preparation step: override the latest default Rust version in GitHub CI
-      # with the current value of the iteration in the "strategy.matrix.rust"-array.
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: default
-          toolchain: ${{ matrix.rust }}
-          override: true
-      # required because of "cpal"
-      - run: sudo apt update && sudo apt install libasound2-dev -y
-      - run: cd "external-examples"
-      - run: cargo build
 
   style_checks:
     runs-on: ubuntu-latest
@@ -82,19 +60,19 @@ jobs:
         rust:
           - stable
     steps:
-      - uses: actions/checkout@v2
-      # Important preparation step: override the latest default Rust version in GitHub CI
-      # with the current value of the iteration in the "strategy.matrix.rust"-array.
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: default
           toolchain: ${{ matrix.rust }}
-          override: true
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
       # required because of "cpal"
-      - run: sudo apt update && sudo apt install libasound2-dev -y
-      - name: Rustfmt (checks all source code/all features)
+      - run: sudo apt update && sudo apt install -y libasound2-dev
+      - name: rustfmt
         run: cargo fmt -- --check
       - name: Clippy
         run: cargo clippy --all-targets
       - name: Rustdoc
-        run: cargo doc
+        run: cargo doc --no-deps --document-private-items
