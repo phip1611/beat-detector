@@ -286,7 +286,7 @@ mod tests {
                 .update_and_detect_beat(input)
                 .map(|info| info.max.index),
             // It seems that the lowpass filter causes a slight delay. This
-            // is also what my reasearch found [0].
+            // is also what my research found [0].
             //
             // As long as it is reasonable small, I think this is good, I guess?
             // [0]: https://electronics.stackexchange.com/questions/372692/low-pass-filter-delay

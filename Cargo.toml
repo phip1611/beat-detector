@@ -53,7 +53,7 @@ ctrlc = { version = "3.4", features = ["termination"] }
 # opt-level = 1
 
 [profile.release]
-# Trimed to maximum performance.
+# Trimmed to maximum performance.
 #
 # These changes only affects examples and tests build inside this crate but
 # (I think!) not libraries that include this.
