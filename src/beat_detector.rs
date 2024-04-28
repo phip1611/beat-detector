@@ -24,7 +24,7 @@ SOFTWARE.
 use crate::EnvelopeInfo;
 use crate::{AudioHistory, EnvelopeIterator};
 use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 /// Cutoff frequency for the lowpass filter to detect beats.
 const CUTOFF_FREQUENCY_HZ: f32 = 95.0;
@@ -69,7 +69,7 @@ impl<'a> AudioInput<'a, StubIterator> {
 }
 
 impl<'a, I: Iterator<Item = f32>> Debug for AudioInput<'a, I> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let variant = match self {
             AudioInput::SliceMono(_) => "SliceMono(data...)",
             AudioInput::SliceStereo(_) => "SliceStereo(data...)",
