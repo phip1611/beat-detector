@@ -45,6 +45,8 @@ pub const DEFAULT_BUFFER_SIZE: usize =
 pub struct SampleInfo {
     /// The value of the sample in range `[-1.0..=1.0]`.
     pub value: f32,
+    /// Absolute value of `value`.
+    pub value_abs: f32,
     /// The current index in [`AudioHistory`].
     pub index: usize,
     /// The total index since the beginning of audio history.
@@ -59,6 +61,7 @@ impl Default for SampleInfo {
     fn default() -> Self {
         Self {
             value: 0.0,
+            value_abs: 0.0,
             index: 0,
             total_index: 0,
             timestamp: Default::default(),
@@ -161,10 +164,12 @@ impl AudioHistory {
         assert!(index < self.data().capacity());
 
         let timestamp = self.timestamp_of_index(index);
+        let value = self.data()[index];
         SampleInfo {
             index,
             timestamp,
-            value: self.data()[index],
+            value,
+            value_abs: libm::fabsf(value),
             total_index: self.index_to_sample_number(index),
             duration_behind: self.timestamp_of_index(self.data().len() - 1) - timestamp,
         }

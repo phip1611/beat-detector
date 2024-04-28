@@ -248,6 +248,7 @@ mod tests {
             Some(EnvelopeInfo {
                 from: SampleInfo {
                     value: 0.11386456,
+                    value_abs: 0.11386456,
                     index: 256,
                     total_index: 256,
                     timestamp: Duration::from_secs_f32(0.005804989),
@@ -255,6 +256,7 @@ mod tests {
                 },
                 to: SampleInfo {
                     value: 0.39106417,
+                    value_abs: 0.39106417,
                     index: 1971,
                     total_index: 1971,
                     timestamp: Duration::from_secs_f32(0.044693876),
@@ -262,6 +264,7 @@ mod tests {
                 },
                 max: SampleInfo {
                     value: -0.6453749,
+                    value_abs: 0.6453749,
                     index: 830,
                     total_index: 830,
                     timestamp: Duration::from_secs_f32(0.018820861),

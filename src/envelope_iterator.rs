@@ -91,7 +91,7 @@ impl Iterator for EnvelopeIterator<'_> {
         // Skip noise.
         let envelope_begin = MaxMinIterator::new(self.buffer, Some(self.index))
             // Find the first item that is not noise.
-            .find(|info| libm::fabsf(info.value) >= ENVELOPE_MIN_VALUE)?;
+            .find(|info| info.value_abs >= ENVELOPE_MIN_VALUE)?;
 
         // Update index to prevent unnecessary iterations on next
         // invocation.
@@ -111,7 +111,7 @@ impl Iterator for EnvelopeIterator<'_> {
             MaxMinIterator::new(self.buffer, None /* avg calc over whole history */);
         let peaks_count = all_peaks_iter.clone().count() as f32;
         let peaks_sum = all_peaks_iter
-            .map(|info| libm::fabsf(info.value))
+            .map(|info| info.value_abs)
             .reduce(|a, b| a + b)?;
         let peaks_avg = peaks_sum / peaks_count;
 
@@ -122,11 +122,11 @@ impl Iterator for EnvelopeIterator<'_> {
         // Find max of envelope.
         let envelope_max = MaxMinIterator::new(self.buffer, Some(envelope_begin.index + 1))
             // ignore irrelevant peaks
-            .skip_while(|info| libm::fabsf(info.value) / peaks_avg < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
+            .skip_while(|info| info.value_abs / peaks_avg < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
             // look at interesting peaks
-            .take_while(|info| libm::fabsf(info.value) / peaks_avg >= ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
+            .take_while(|info| info.value_abs / peaks_avg >= ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
             // get the maximum
-            .reduce(|a, b| if libm::fabsf(a.value) > libm::fabsf(b.value) { a } else { b })?;
+            .reduce(|a, b| if a.value_abs > b.value_abs { a } else { b })?;
 
         // Find end of envelope.
         let envelope_end = find_descending_peak_trend_end(self.buffer, envelope_max.index)?;
@@ -170,9 +170,9 @@ fn find_descending_peak_trend_end(buffer: &AudioHistory, begin_index: usize) -> 
         .clone()
         .zip(peak_iter.clone().skip(1).zip(peak_iter.skip(2)))
         .take_while(|(current, (next, nextnext))| {
-            let val_curr = libm::fabsf(current.value);
-            let val_next = libm::fabsf(next.value);
-            let val_nextnext = libm::fabsf(nextnext.value);
+            let val_curr = current.value_abs;
+            let val_next = next.value_abs;
+            let val_nextnext = nextnext.value_abs;
 
             let next_is_descending = val_next <= val_curr;
             if next_is_descending {
