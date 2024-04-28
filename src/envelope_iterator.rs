@@ -381,4 +381,16 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn find_envelopes_holiday_single_beat() {
+        let (samples, header) = test_utils::samples::holiday_single_beat();
+        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        history.update(&samples);
+
+        let envelopes = EnvelopeIterator::new(&history, None)
+            .map(|info| (info.from.index, info.to.index))
+            .collect::<Vec<_>>();
+        assert_eq!(&envelopes, &[(256, 1971)]);
+    }
 }
