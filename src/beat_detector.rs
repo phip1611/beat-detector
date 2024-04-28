@@ -107,3 +107,20 @@ mod tests {
         accept::<BeatDetector>();
     }
 }
+
+/// Here, I run "static" tests against the beat detector. This means, the whole
+/// waveform is loaded at once into the internal buffer. I expect the same
+/// results as for the EnvelopeIterator unit tests.
+#[cfg(test)]
+mod static_data_tests {
+
+    #[test]
+    fn find_beat_holiday_single_beat() {
+
+    }
+
+    #[test]
+    fn find_beats_sample1_double_beat() {
+
+    }
+}
