@@ -90,6 +90,7 @@ impl AudioHistory {
 
     /// Update the audio history with fresh samples. The audio samples are
     /// expected to be in mono channel format.
+    #[inline]
     pub fn update<I: Iterator<Item = f32>>(&mut self, mono_samples_iter: I) {
         let mut len = 0;
         mono_samples_iter.for_each(|sample| {
@@ -118,12 +119,14 @@ impl AudioHistory {
     }
 
     /// Get the passed time in seconds.
+    #[inline]
     pub fn passed_time(&self) -> Duration {
         let seconds = self.time_per_sample * self.total_consumed_samples as f32;
         Duration::from_secs_f32(seconds)
     }
 
     /// Access the underlying data storage.
+    #[inline]
     pub const fn data(&self) -> &ConstGenericRingBuffer<f32, DEFAULT_BUFFER_SIZE> {
         &self.audio_buffer
     }
@@ -146,6 +149,7 @@ impl AudioHistory {
 
     /// Returns the index in the current captured audio window from the total
     /// index of the given sample, if present.
+    #[inline]
     pub fn total_index_to_index(&self, total_index: usize) -> Option<usize> {
         // TODO this looks way too complicated. Probably can be simplified.
         if self.lost_samples() == 0 {
@@ -179,6 +183,7 @@ impl AudioHistory {
 
     /// Returns the amount of lost samples, i.e., samples that are no in the
     /// underlying ringbuffer anymore.
+    #[inline]
     fn lost_samples(&self) -> usize {
         if self.total_consumed_samples <= self.data().capacity() {
             0
