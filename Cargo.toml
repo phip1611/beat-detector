@@ -26,20 +26,28 @@ exclude = [
 rust-version = "1.76.0"
 
 [features]
-default = ["std"]
-std = ["recording"]
-recording = ["dep:cpal"]
+default = ["recording"]
+
+# Marker/helper
+std = []
+
+# Actual features
+recording = ["std", "dep:cpal"]
 
 [[bench]]
 name = "beat_detection_bench"
 harness = false
 
+[[example]]
+name = "detect-beats-from-input-in-terminal"
+required-features = [ "recording" ]
+
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
 
 biquad = "0.4" # lowpass filter
-log = { version = "0.4", default-features = false }
 libm = "0.2"# floating point operations
+log = { version = "0.4", default-features = false }
 ringbuffer = "0.15.0"
 
 # +++ STD DEPENDENCIES +++
@@ -49,6 +57,7 @@ cpal = { version = "0.15", optional = true }
 ctrlc = { version = "3.4", features = ["termination"] }
 criterion = { version = "0.5", features = [] }
 wav = "1.0"
+simple_logger = "1.16"
 
 [profile.dev]
 # otherwise many code is too slow

@@ -79,6 +79,7 @@ SOFTWARE.
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::all)]
 
+extern crate alloc;
 #[cfg_attr(any(test, feature = "std"), macro_use)]
 #[cfg(any(test, feature = "std"))]
 extern crate std;
@@ -98,7 +99,7 @@ pub use audio_history::{AudioHistory, SampleInfo};
 pub use beat_detector::{AudioInput, BeatDetector, BeatInfo, StubIterator};
 pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
 #[cfg(feature = "std")]
-pub use std::*;
+pub use stdlib::*;
 
 use max_min_iterator::MaxMinIterator;
 use root_iterator::RootIterator;
