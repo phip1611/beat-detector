@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 fn init_logger() {
     simple_logger::SimpleLogger::new()
-        .with_level(LevelFilter::Trace)
+        .with_level(LevelFilter::Debug)
         .with_colors(true)
         .with_utc_timestamps()
         .init()
