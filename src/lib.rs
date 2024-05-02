@@ -31,6 +31,17 @@ SOFTWARE.
 //! `[-1.0..=1.0]` and the sampling rate. Audio samples are expected to be in
 //! mono channel format.
 //!
+//! ## Example
+//! ```rust
+//! use beat_detector::BeatDetector;
+//! let mono_samples = [0.0, 0.5, -0.8, 0.7];
+//! let mut detector = BeatDetector::new(44100.0, false);
+//!
+//! let is_beat = detector.update_and_detect_beat(
+//!     mono_samples.iter().copied()
+//! );
+//! ```
+//!
 //! ## Detection and Usage
 //!
 //! The beat detector is supposed to be continuously invoked with the latest
@@ -79,23 +90,28 @@ SOFTWARE.
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::all)]
 
+extern crate alloc;
 #[cfg_attr(any(test, feature = "std"), macro_use)]
 #[cfg(any(test, feature = "std"))]
 extern crate std;
 
 mod audio_history;
+mod beat_detector;
 mod envelope_iterator;
 mod max_min_iterator;
 mod root_iterator;
-
-mod beat_detector;
+#[cfg(feature = "std")]
+mod stdlib;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
 
 pub use audio_history::{AudioHistory, SampleInfo};
-pub use beat_detector::{AudioInput, BeatDetector, BeatInfo};
+pub use beat_detector::{BeatDetector, BeatInfo};
 pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
+#[cfg(feature = "std")]
+pub use stdlib::*;
+
 use max_min_iterator::MaxMinIterator;
 use root_iterator::RootIterator;
 
