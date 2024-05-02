@@ -1,4 +1,4 @@
-use beat_detector::{AudioInput, BeatDetector, StubIterator};
+use beat_detector::BeatDetector;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -12,11 +12,11 @@ fn criterion_benchmark(c: &mut Criterion) {
         "simulate beat detection (with lowpass) with 4096 samples per invocation",
         |b| {
             b.iter(|| {
-                let input = AudioInput::<StubIterator>::SliceMono(slice_of_interest);
                 // We do not care about the correct detection. Using this, I just want
                 // to find out overall calculation time and do profiling to see which
                 // functions can be optimized.
-                let _ = detector.update_and_detect_beat(black_box(input));
+                let _ =
+                    detector.update_and_detect_beat(black_box(slice_of_interest.iter().copied()));
             })
         },
     );
@@ -26,11 +26,11 @@ fn criterion_benchmark(c: &mut Criterion) {
         "simulate beat detection (no lowpass) with 4096 samples per invocation",
         |b| {
             b.iter(|| {
-                let input = AudioInput::<StubIterator>::SliceMono(slice_of_interest);
                 // We do not care about the correct detection. Using this, I just want
                 // to find out overall calculation time and do profiling to see which
                 // functions can be optimized.
-                let _ = detector.update_and_detect_beat(black_box(input));
+                let _ =
+                    detector.update_and_detect_beat(black_box(slice_of_interest.iter().copied()));
             })
         },
     );

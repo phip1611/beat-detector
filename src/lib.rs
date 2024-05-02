@@ -31,6 +31,17 @@ SOFTWARE.
 //! `[-1.0..=1.0]` and the sampling rate. Audio samples are expected to be in
 //! mono channel format.
 //!
+//! ## Example
+//! ```rust
+//! use beat_detector::BeatDetector;
+//! let mono_samples = [0.0, 0.5, -0.8, 0.7];
+//! let mut detector = BeatDetector::new(44100.0, false);
+//!
+//! let is_beat = detector.update_and_detect_beat(
+//!     mono_samples.iter().copied()
+//! );
+//! ```
+//!
 //! ## Detection and Usage
 //!
 //! The beat detector is supposed to be continuously invoked with the latest
@@ -96,7 +107,7 @@ mod stdlib;
 mod test_utils;
 
 pub use audio_history::{AudioHistory, SampleInfo};
-pub use beat_detector::{AudioInput, BeatDetector, BeatInfo, StubIterator};
+pub use beat_detector::{BeatDetector, BeatInfo};
 pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
 #[cfg(feature = "std")]
 pub use stdlib::*;

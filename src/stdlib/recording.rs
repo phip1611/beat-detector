@@ -25,7 +25,7 @@ SOFTWARE.
 //! Module for audio recording from an audio input device.
 
 use super::*;
-use crate::{AudioInput, BeatDetector, BeatInfo, StubIterator};
+use crate::{BeatDetector, BeatInfo};
 use core::fmt::{Display, Formatter};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{BufferSize, StreamConfig};
@@ -112,8 +112,7 @@ pub fn start_detector_thread(
                     sampling_rate / data.len() as f32
                 );
 
-                let beat =
-                    detector.update_and_detect_beat(AudioInput::<StubIterator>::SliceMono(data));
+                let beat = detector.update_and_detect_beat(data.iter().copied());
 
                 if let Some(beat) = beat {
                     on_beat_cb(beat);

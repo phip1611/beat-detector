@@ -24,59 +24,13 @@ SOFTWARE.
 use crate::EnvelopeInfo;
 use crate::{AudioHistory, EnvelopeIterator};
 use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
-use core::fmt::{Debug, Formatter};
+use core::fmt::Debug;
 
 /// Cutoff frequency for the lowpass filter to detect beats.
 const CUTOFF_FREQUENCY_HZ: f32 = 95.0;
 
 /// Information about a beat.
 pub type BeatInfo = EnvelopeInfo;
-
-/// No-op type helper for [`AudioInput`] that is needed as default generic type.
-/// Use this when you using [`AudioInput::SliceMono`] or [`AudioInput::SliceStereo`].
-#[derive(Debug)]
-pub struct StubIterator;
-
-impl Iterator for StubIterator {
-    type Item = f32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        None
-    }
-}
-
-/// The audio input source. Each value must be in range `[-1.0..=1.0]`. This
-/// abstraction facilitates the libraries goal to prevent needless copying
-/// and buffering of data: internally as well as on a higher level.
-pub enum AudioInput<'a, I: Iterator<Item = f32> = StubIterator> {
-    /// The audio input stream only consists of mono samples.
-    SliceMono(&'a [f32]),
-    /// The audio input streams consists of interleaved samples following a
-    /// LRLRLR or RLRLRL scheme. This is typically the case for stereo channel
-    /// audio. Internally, the audio will be combined to a mono track.
-    SliceStereo(&'a [f32]),
-    /// Custom iterator emitting mono samples in f32 format.
-    Iterator(I),
-}
-
-impl<'a> AudioInput<'a, StubIterator> {
-    /// Creates an empty input. Useful if you want to run the detection again
-    /// without adding more data.
-    pub const fn empty() -> Self {
-        Self::SliceMono(&[])
-    }
-}
-
-impl<'a, I: Iterator<Item = f32>> Debug for AudioInput<'a, I> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let variant = match self {
-            AudioInput::SliceMono(_) => "SliceMono(data...)",
-            AudioInput::SliceStereo(_) => "SliceStereo(data...)",
-            AudioInput::Iterator(_) => "Iterator(data...)",
-        };
-        f.debug_tuple("AudioInput").field(&variant).finish()
-    }
-}
 
 #[derive(Debug)]
 pub struct BeatDetector {
@@ -112,15 +66,48 @@ impl BeatDetector {
     ///
     /// From experience, Linux audio input libraries give you a 20-40ms audio
     /// buffer every 20-40ms with the latest data. That's a good rule of thumb.
+    /// This corresponds to 1800 mono samples at a sampling rate of 44.1kHz.
     ///
     /// If new audio data contains two beats, only the first one will be
     /// discovered. On the next invocation, the next beat will be discovered,
     /// if still present in the internal audio window.
+    ///
+    /// # Input
+    ///
+    /// The input iterator must emit mono samples. Every sample **must** be in
+    /// range `[-1.0..=1.0]`.
+    ///
+    /// ## Example with audio source emitting mono samples
+    /// ```rust
+    /// use beat_detector::BeatDetector;
+    /// let mono_samples = [0.0, 0.5, -0.8, 0.7];
+    /// let mut detector = BeatDetector::new(44100.0, false);
+    ///
+    /// let is_beat = detector.update_and_detect_beat(
+    ///     mono_samples.iter().copied()
+    /// );
+    /// ```
+    ///
+    /// ## Example with audio source emitting stereo samples
+    /// ```rust
+    /// use beat_detector::BeatDetector;
+    /// // Let's pretend this is interleaved LRLR stereo data.
+    /// let stereo_samples = [0.0, 0.5, -0.8, 0.7];
+    /// let mut detector = BeatDetector::new(44100.0, false);
+    ///
+    /// let is_beat = detector.update_and_detect_beat(
+    ///     stereo_samples.chunks(2).map(|slice| {
+    ///         let l = slice[0];
+    ///         let r = slice[1];
+    ///         (l + r) / 2.0
+    ///     })
+    /// );
+    /// ```
     pub fn update_and_detect_beat(
         &mut self,
-        input: AudioInput<impl Iterator<Item = f32>>,
+        mono_samples_iter: impl Iterator<Item = f32>,
     ) -> Option<BeatInfo> {
-        self.consume_audio(input);
+        self.consume_audio(mono_samples_iter);
 
         let search_begin_index = self
             .previous_beat
@@ -134,45 +121,17 @@ impl BeatDetector {
         beat
     }
 
-    /// Applies the data from the given [`AudioInput`] to the lowpass filter and
-    /// adds it to the internal audio window.
-    fn consume_audio(&mut self, input: AudioInput<impl Iterator<Item = f32>>) {
-        match input {
-            AudioInput::SliceMono(slice) => {
-                let iter = slice.iter().map(|&sample| {
-                    if self.needs_lowpass_filter {
-                        self.lowpass_filter.run(sample)
-                    } else {
-                        sample
-                    }
-                });
-                self.history.update(iter)
+    /// Applies the data from the given audio input to the lowpass filter (if
+    /// necessary) and adds it to the internal audio window.
+    fn consume_audio(&mut self, mono_samples_iter: impl Iterator<Item = f32>) {
+        let iter = mono_samples_iter.map(|sample| {
+            if self.needs_lowpass_filter {
+                self.lowpass_filter.run(sample)
+            } else {
+                sample
             }
-            AudioInput::SliceStereo(slice) => {
-                let iter = slice
-                    .chunks(2)
-                    .map(|lr| (lr[0] + lr[1]) / 2.0)
-                    .map(|sample| {
-                        if self.needs_lowpass_filter {
-                            self.lowpass_filter.run(sample)
-                        } else {
-                            sample
-                        }
-                    });
-
-                self.history.update(iter)
-            }
-            AudioInput::Iterator(iter) => {
-                let iter = iter.map(|sample| {
-                    if self.needs_lowpass_filter {
-                        self.lowpass_filter.run(sample)
-                    } else {
-                        sample
-                    }
-                });
-                self.history.update(iter)
-            }
-        }
+        });
+        self.history.update(iter)
     }
 
     fn create_lowpass_filter(sampling_frequency_hz: f32) -> DirectForm1<f32> {
@@ -193,7 +152,6 @@ impl BeatDetector {
 mod tests {
     use super::*;
     use crate::{test_utils, SampleInfo};
-    use ringbuffer::RingBuffer;
     use std::time::Duration;
     use std::vec::Vec;
 
@@ -202,34 +160,6 @@ mod tests {
         fn accept<I: Send + Sync>() {}
 
         accept::<BeatDetector>();
-    }
-
-    /// Tests that the audio input consomption with all possible variants
-    /// properly works.
-    #[test]
-    fn audio_input_consumption_works() {
-        let mut detector = BeatDetector::new(1000.0, false);
-        assert_eq!(detector.history.data().len(), 0);
-
-        let input = AudioInput::<StubIterator>::SliceMono(&[0.1, 0.2]);
-        let _ = detector.update_and_detect_beat(input);
-        assert_eq!(detector.history.data().len(), 2);
-
-        let input = AudioInput::<StubIterator>::SliceStereo(&[0.1, 0.2]);
-        let _ = detector.update_and_detect_beat(input);
-        assert_eq!(detector.history.data().len(), 3);
-
-        let input = AudioInput::<_>::Iterator(core::iter::once(0.3));
-        let _ = detector.update_and_detect_beat(input);
-        assert_eq!(detector.history.data().len(), 4);
-
-        assert_eq!(detector.history.data()[0], 0.1);
-        assert_eq!(detector.history.data()[1], 0.2);
-        assert_eq!(
-            detector.history.data()[2],
-            0.15 /* calculated mono value */
-        );
-        assert_eq!(detector.history.data()[3], 0.3);
     }
 
     /// This test serves as base so that the underlying functionality
@@ -241,9 +171,8 @@ mod tests {
     fn detect__static__no_lowpass__holiday_single_beat() {
         let (samples, header) = test_utils::samples::holiday_single_beat();
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
-        let input = AudioInput::<StubIterator>::SliceMono(samples.as_slice());
         assert_eq!(
-            detector.update_and_detect_beat(input),
+            detector.update_and_detect_beat(samples.iter().copied()),
             Some(EnvelopeInfo {
                 from: SampleInfo {
                     value: 0.11386456,
@@ -271,7 +200,7 @@ mod tests {
                 }
             })
         );
-        assert_eq!(detector.update_and_detect_beat(AudioInput::empty()), None);
+        assert_eq!(detector.update_and_detect_beat(core::iter::empty()), None);
     }
 
     #[test]
@@ -279,10 +208,9 @@ mod tests {
     fn detect__static__lowpass__holiday_single_beat() {
         let (samples, header) = test_utils::samples::holiday_single_beat();
         let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
-        let input = AudioInput::<StubIterator>::SliceMono(samples.as_slice());
         assert_eq!(
             detector
-                .update_and_detect_beat(input)
+                .update_and_detect_beat(samples.iter().copied())
                 .map(|info| info.max.index),
             // It seems that the lowpass filter causes a slight delay. This
             // is also what my research found [0].
@@ -291,7 +219,7 @@ mod tests {
             // [0]: https://electronics.stackexchange.com/questions/372692/low-pass-filter-delay
             Some(942)
         );
-        assert_eq!(detector.update_and_detect_beat(AudioInput::empty()), None);
+        assert_eq!(detector.update_and_detect_beat(core::iter::empty()), None);
     }
 
     fn simulate_dynamic_audio_source(
@@ -302,9 +230,8 @@ mod tests {
         samples
             .chunks(chunk_size)
             .flat_map(|samples| {
-                let input = AudioInput::<StubIterator>::SliceMono(samples);
                 detector
-                    .update_and_detect_beat(input)
+                    .update_and_detect_beat(samples.iter().copied())
                     .map(|info| info.max.total_index)
             })
             .collect::<std::vec::Vec<_>>()
