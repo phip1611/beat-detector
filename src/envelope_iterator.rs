@@ -338,7 +338,7 @@ mod tests {
             let peak_sample_index = 1430;
             assert_eq!(
                 find_descending_peak_trend_end(&history, peak_sample_index).map(|info| info.index),
-                Some(7098)
+                Some(7101)
             )
         }
         // sample1: double beat
@@ -351,13 +351,13 @@ mod tests {
             let peak_sample_index = 1634;
             assert_eq!(
                 find_descending_peak_trend_end(&history, peak_sample_index).map(|info| info.index),
-                Some(6974)
+                Some(6979)
             );
 
             let peak_sample_index = 8961;
             assert_eq!(
                 find_descending_peak_trend_end(&history, peak_sample_index).map(|info| info.index),
-                Some(16141)
+                Some(16142)
             );
         }
         // holiday: single beat
@@ -389,7 +389,7 @@ mod tests {
             .take(1)
             .map(|info| (info.from.index, info.to.index))
             .collect::<Vec<_>>();
-        assert_eq!(&envelopes, &[(410, 7098)])
+        assert_eq!(&envelopes, &[(411, 7098)])
     }
 
     #[test]
@@ -420,6 +420,6 @@ mod tests {
         let envelopes = EnvelopeIterator::new(&history, None)
             .map(|info| (info.from.index, info.to.index))
             .collect::<Vec<_>>();
-        assert_eq!(&envelopes, &[(256, 1971)]);
+        assert_eq!(&envelopes, &[(259, 1972)]);
     }
 }

@@ -78,6 +78,9 @@ impl Iterator for MaxMinIterator<'_> {
             .enumerate()
             .skip(begin_index)
             .take(sample_count)
+            // TODO by increasing this, we also have high performance
+            //  improvement chances.
+            .step_by(2)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
                 if libm::fabsf(x_value) > libm::fabsf(y_value) {
                     Ordering::Greater
@@ -116,50 +119,8 @@ mod tests {
                 (543, 0.39106417),
                 (865, -0.068865016),
                 (1027, 0.24600971),
-                (1302, -0.3068636)
+                (1301, -0.30671102)
             ]
         );
     }
-
-    /* Unnecessary. No real value-add compared to the basic one.
-    #[test]
-    fn find_maxmin_in_sample1_single_beat() {
-        let (samples, header) = test_utils::samples::sample1_single_beat();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
-        history.update(samples.iter());
-
-        let iter = MaxMinIterator::new(&history, None);
-        #[rustfmt::skip]
-        assert_eq!(
-            iter.map(|info| (info.total_index, info.value)).collect::<Vec<_>>(),
-            // I checked in Audacity whether the values returned by the code
-            // make sense. Then, they became the reference for the test.
-            [
-                (278, 0.052491836),
-                (410, -0.16049685),
-                (571, 0.373455),
-                (784, -0.5160222),
-                (1115, 0.5157323),
-                (1430, -0.6508072),
-                (1765, 0.57049775),
-                (2134, -0.43621632),
-                (2468, 0.33156836),
-                (2835, -0.25760674),
-                (3182, 0.24184392),
-                (3524, -0.23711357),
-                (3873, 0.24263741),
-                (4238, -0.2305063),
-                (4594, 0.22055727),
-                (4949, -0.21684927),
-                (5308, 0.20571002),
-                (5688, -0.17737357),
-                (6029, 0.1653035),
-                (6397, -0.16501358),
-                (6757, 0.16016114),
-                (7098, -0.14281136),
-                (7462, 0.14355907),
-                (7840, -0.1374096),
-            ]
-        );
-    } */
 }

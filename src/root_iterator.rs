@@ -26,6 +26,25 @@ use ringbuffer::RingBuffer;
 
 const IGNORE_NOISE_THRESHOLD: f32 = 0.05;
 
+/// THe state a sample. Either above zero or below.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum State {
+    Above,
+    Below,
+}
+
+impl From<f32 /* sample */> for State {
+    #[inline(always)]
+    fn from(sample: f32) -> Self {
+        debug_assert!(libm::fabsf(sample) <= 1.0);
+        if sample.is_sign_positive() {
+            Self::Above
+        } else {
+            Self::Below
+        }
+    }
+}
+
 /// Iterates the roots/zeroes of the wave.
 ///
 /// This iterator is supposed to be used multiple times on the same audio
@@ -55,19 +74,26 @@ impl Iterator for RootIterator<'_> {
             return None;
         }
 
-        let create_iter = || self.buffer.data().iter().enumerate().skip(self.index);
+        let mut iter = self
+            .buffer
+            .data()
+            .iter()
+            .enumerate()
+            .skip(self.index)
+            // Given the very high sampling rate, we can sacrifice a negligible
+            // impact on precision for better performance / fewer iterations.
+            .step_by(10)
+            .skip_while(|(_, &sample)| libm::fabsf(sample) < IGNORE_NOISE_THRESHOLD);
 
-        let next_root = create_iter()
-            .zip(create_iter().skip(1))
-            .skip_while(|((_, &current), _)| libm::fabsf(current) < IGNORE_NOISE_THRESHOLD)
-            .skip_while(|((_, &current), (_, &next))| {
-                // skip while we don't cross the y-axis
-                (current < 0.0 && next < 0.0) || (current > 0.0 && next > 0.0)
-            })
-            .map(|(current, _next)| current)
-            .next();
+        let initial_state = State::from(iter.next().map(|(_, &sample)| sample)?);
 
-        if let Some((index, _)) = next_root {
+        let next_root = iter
+            // Skip while we didn't cross the x axis.
+            .find(|(_, &sample)| State::from(sample) != initial_state)
+            // We are looking for the index right before the zero.
+            .map(|(index, _)| index - 1);
+
+        if let Some(index) = next_root {
             // + 1: don't find the same the next time
             self.index = index + 1;
             Some(self.buffer.index_to_sample_info(index))
@@ -96,55 +122,31 @@ mod tests {
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (362, -0.0031434065),
-                (682, 0.00065614795),
-                (923, -0.0020905174),
-                (1120, 0.002365185),
-                (1441, -0.00027466752)
+                (369, 0.030869473),
+                (689, -0.013336589),
+                (929, 0.013290811),
+                (1129, -0.030655842),
+                (1449, 0.03350932)
             ]
         );
     }
 
-    /* Unnecessary. No real value-add compared to the basic one.
     #[test]
-    fn find_roots_in_sample1_single_beat() {
-        let (samples, header) = test_utils::samples::sample1_single_beat();
+    fn find_roots_in_holiday_excerpt_but_begin_at_specific_index() {
+        let (samples, header) = test_utils::samples::holiday_excerpt();
         let mut history = AudioHistory::new(header.sampling_rate as f32);
-        history.update(samples.iter());
+        history.update(samples.iter().copied());
 
-        let iter = RootIterator::new(&history, None);
+        let iter = RootIterator::new(&history, Some(929 /* index taken from test above */ + 1));
         #[rustfmt::skip]
         assert_eq!(
             iter.map(|info| (info.total_index, info.value)).collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (317, 0.0012665181),
-                (480, -0.000717185),
-                (667, 0.0028382214),
-                (930, -0.002929777),
-                (1272, 0.0040284432),
-                (1604, -0.003051851),
-                (1947, 0.0018311106),
-                (2305, -0.0016937773),
-                (2659, 0.00068666646),
-                (3017, -0.0012665181),
-                (3363, 0.00012207404),
-                (3714, -0.00038148137),
-                (4062, 0.0011139256),
-                (4416, -0.00065614795),
-                (4775, 0.0014496292),
-                (5130, -0.0005645924),
-                (5479, 0.0010681478),
-                (5848, -0.0009155553),
-                (6209, 0.0012359996),
-                (6571, -0.0012359996),
-                (6924, 0.00041199988),
-                (7293, -0.0011139256),
-                (7661, 0.0003357036),
-                (8025, -0.0010681478)
+                (1129, -0.030655842),
+                (1449, 0.03350932)
             ]
         );
     }
-    */
 }

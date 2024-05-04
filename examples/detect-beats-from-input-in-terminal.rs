@@ -41,13 +41,6 @@ fn main() {
     log::info!("Stopped recording");
 }
 
-fn get_backends() -> HashMap<String, cpal::Host> {
-    cpal::available_hosts()
-        .into_iter()
-        .map(|id| (format!("{:?}", id), cpal::host_from_id(id).unwrap()))
-        .collect::<HashMap<_, _>>()
-}
-
 /// Returns all valid and available input devices.
 fn get_input_devices() -> Vec<(cpal::HostId, Vec<cpal::Device>)> {
     cpal::available_hosts()
@@ -87,7 +80,7 @@ fn get_input_devices_flat() -> Vec<(cpal::HostId, cpal::Device)> {
 }
 
 /// Prompts the user in the terminal to choose an audio backend.
-fn select_audio_device() -> cpal::Device  {
+fn select_audio_device() -> cpal::Device {
     println!("Available input devices:");
 
     let mut devices = get_input_devices_flat();

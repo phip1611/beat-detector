@@ -121,7 +121,10 @@ impl AudioHistory {
         let mut len = 0;
         mono_samples_iter.for_each(|sample| {
             debug_assert!(sample.is_finite());
-            debug_assert!(libm::fabsf(sample) <= 1.0, "sample must be in range `[-1.0..=1.0]`, but is {sample}");
+            debug_assert!(
+                libm::fabsf(sample) <= 1.0,
+                "sample must be in range `[-1.0..=1.0]`, but is {sample}"
+            );
 
             self.audio_buffer.push(sample);
             len += 1;
@@ -255,7 +258,6 @@ mod tests {
     fn buffer_len_sane() {
         let sampling_rate = 1.0 / DEFAULT_SAMPLES_PER_SECOND as f32;
         let duration = Duration::from_secs_f32(sampling_rate * DEFAULT_BUFFER_SIZE as f32);
-        dbg!(duration);
         assert!(duration.as_millis() > 10);
         assert!(duration.as_millis() <= 1000);
     }
