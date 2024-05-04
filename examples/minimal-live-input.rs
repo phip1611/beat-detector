@@ -2,6 +2,7 @@ use beat_detector::*;
 use cpal::traits::{DeviceTrait, HostTrait};
 use log::LevelFilter;
 use std::io::Read;
+use std::process::exit;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -80,9 +81,18 @@ fn get_input_devices_flat() -> Vec<(cpal::HostId, cpal::Device)> {
 
 /// Prompts the user in the terminal to choose an audio backend.
 fn select_audio_device() -> cpal::Device {
-    println!("Available input devices:");
-
     let mut devices = get_input_devices_flat();
+
+    if devices.is_empty() {
+        println!("No audio input device available");
+        exit(0);
+    }
+
+    if devices.len() == 1 {
+        return devices.swap_remove(0).1;
+    }
+
+    println!("Available input devices:");
     for (device_i, (host_id, device)) in devices.iter().enumerate() {
         println!(
             "[{}]: {:?} - {}",
@@ -97,6 +107,7 @@ fn select_audio_device() -> cpal::Device {
     print!("Type a number: ");
     let mut buf = [0];
     std::io::stdin().read_exact(&mut buf).unwrap();
+    println!(); // newline
     let buf = std::str::from_utf8(&buf).unwrap();
     let choice = usize::from_str_radix(buf, 10).unwrap();
 
