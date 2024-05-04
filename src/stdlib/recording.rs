@@ -107,9 +107,9 @@ pub fn start_detector_thread(
             &input_config,
             move |data: &[f32], _info| {
                 log::trace!(
-                    "audio input callback: {} samples ({} ms)",
+                    "audio input callback: {} samples ({} ms, sampling rate = {sampling_rate})",
                     data.len(),
-                    sampling_rate / data.len() as f32
+                    Duration::from_secs_f32(data.len() as f32 / sampling_rate).as_millis()
                 );
 
                 let beat = detector.update_and_detect_beat(data.iter().copied());
