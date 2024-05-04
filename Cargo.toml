@@ -42,6 +42,10 @@ harness = false
 name = "minimal-live-input"
 required-features = [ "recording" ]
 
+[[example]]
+name = "minimal-live-input-gui"
+required-features = [ "recording" ]
+
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
 
@@ -56,8 +60,9 @@ cpal = { version = "0.15", optional = true }
 [dev-dependencies]
 ctrlc = { version = "3.4", features = ["termination"] }
 criterion = { version = "0.5", features = [] }
-wav = "1.0"
 simple_logger = "5.0"
+minifb = "0.25.0"
+wav = "1.0"
 
 [profile.dev]
 # otherwise many code is too slow
