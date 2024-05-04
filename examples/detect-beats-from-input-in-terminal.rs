@@ -1,7 +1,6 @@
 use beat_detector::*;
 use cpal::traits::{DeviceTrait, HostTrait};
 use log::LevelFilter;
-use std::collections::HashMap;
 use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
