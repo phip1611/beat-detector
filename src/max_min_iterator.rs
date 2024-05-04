@@ -78,9 +78,7 @@ impl Iterator for MaxMinIterator<'_> {
             .enumerate()
             .skip(begin_index)
             .take(sample_count)
-            // TODO by increasing this, we also have high performance
-            //  improvement chances.
-            .step_by(2)
+            .step_by(10)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
                 if libm::fabsf(x_value) > libm::fabsf(y_value) {
                     Ordering::Greater
@@ -116,10 +114,10 @@ mod tests {
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (543, 0.39106417),
-                (865, -0.068865016),
-                (1027, 0.24600971),
-                (1301, -0.30671102)
+                (539, 0.39056063),
+                (859, -0.068437755),
+                (1029, 0.24597919),
+                (1299, -0.3066042),
             ]
         );
     }

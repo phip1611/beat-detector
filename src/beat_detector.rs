@@ -217,7 +217,7 @@ mod tests {
             //
             // As long as it is reasonable small, I think this is good, I guess?
             // [0]: https://electronics.stackexchange.com/questions/372692/low-pass-filter-delay
-            Some(943)
+            Some(939)
         );
         assert_eq!(detector.update_and_detect_beat(core::iter::empty()), None);
     }
@@ -263,7 +263,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[1311, 8639]
+            &[1309, 8637]
         );
     }
 
@@ -275,7 +275,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[12935, 93793, 101457, 189599, 270783, 278469]
+            &[12939, 93789, 101457, 189595, 270785, 278473]
         );
     }
 
@@ -287,7 +287,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[29077, 31225, 47051, 65813, 83769, 101995, 120139, 138129]
+            &[29077, 31225, 47053, 65811, 83773, 101995, 120137, 138131]
         );
     }
 
@@ -299,7 +299,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[31333, 47165, 65923, 84221, 102109, 120247, 138561]
+            &[31335, 47163, 65921, 84223, 102105, 120247, 138559]
         );
     }
 }
