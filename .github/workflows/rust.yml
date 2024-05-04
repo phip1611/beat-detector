@@ -31,6 +31,9 @@ jobs:
 
   build_nostd:
     runs-on: ubuntu-latest
+    needs:
+      # Only logical dependency
+      - build
     strategy:
       matrix:
         rust:
@@ -52,6 +55,28 @@ jobs:
       - run: rustup target add thumbv7em-none-eabihf
       # Reset target-cpu=native .cargo/config.toml
       - run: RUSTFLAGS="-C target-cpu=" cargo build --no-default-features --target thumbv7em-none-eabihf
+
+  benchmarks:
+    runs-on: ubuntu-latest
+    needs:
+      # Only logical dependency
+      - build
+    strategy:
+      matrix:
+        rust:
+          - stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: "${{ matrix.runs-on }}-${{ matrix.rust }}"
+      # required because of "cpal"
+      - run: sudo apt update && sudo apt install -y libasound2-dev
+      - run: cargo bench
 
   style_checks:
     runs-on: ubuntu-latest
