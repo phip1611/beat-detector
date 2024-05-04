@@ -39,7 +39,7 @@ name = "beat_detection_bench"
 harness = false
 
 [[example]]
-name = "minimal"
+name = "minimal-live-input"
 required-features = [ "recording" ]
 
 [dependencies]
@@ -57,7 +57,7 @@ cpal = { version = "0.15", optional = true }
 ctrlc = { version = "3.4", features = ["termination"] }
 criterion = { version = "0.5", features = [] }
 wav = "1.0"
-simple_logger = "1.16"
+simple_logger = "5.0"
 
 [profile.dev]
 # otherwise many code is too slow
