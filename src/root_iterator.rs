@@ -82,7 +82,7 @@ impl Iterator for RootIterator<'_> {
             .skip(self.index)
             // Given the very high sampling rate, we can sacrifice a negligible
             // impact on precision for better performance / fewer iterations.
-            .step_by(2)
+            .step_by(10)
             .skip_while(|(_, &sample)| libm::fabsf(sample) < IGNORE_NOISE_THRESHOLD);
 
         let initial_state = State::from(iter.next().map(|(_, &sample)| sample)?);
@@ -122,11 +122,11 @@ mod tests {
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (363, 0.0017242958),
-                (683, -0.0015106662),
-                (923, -0.0020905174),
-                (1121, -0.0013580737),
-                (1441, -0.00027466752)
+                (369, 0.030869473),
+                (689, -0.013336589),
+                (929, 0.013290811),
+                (1129, -0.030655842),
+                (1449, 0.03350932)
             ]
         );
     }
@@ -137,15 +137,15 @@ mod tests {
         let mut history = AudioHistory::new(header.sampling_rate as f32);
         history.update(samples.iter().copied());
 
-        let iter = RootIterator::new(&history, Some(923 /* index taken from test above */ + 1));
+        let iter = RootIterator::new(&history, Some(929 /* index taken from test above */ + 1));
         #[rustfmt::skip]
         assert_eq!(
             iter.map(|info| (info.total_index, info.value)).collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (1121, -0.0013580737),
-                (1441, -0.00027466752)
+                (1129, -0.030655842),
+                (1449, 0.03350932)
             ]
         );
     }
