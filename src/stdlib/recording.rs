@@ -30,7 +30,7 @@ use core::fmt::{Display, Formatter};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{BufferSize, StreamConfig};
 use std::error::Error;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 // #[derive(Debug, Clone)]
@@ -112,9 +112,13 @@ pub fn start_detector_thread(
                     Duration::from_secs_f32(data.len() as f32 / sampling_rate).as_millis()
                 );
 
+                let now = Instant::now();
                 let beat = detector.update_and_detect_beat(data.iter().copied());
+                let duration = now.elapsed();
+                log::trace!("Beat detection took {:?}", duration);
 
                 if let Some(beat) = beat {
+                    log::debug!("Beat detection took {:?}", duration);
                     on_beat_cb(beat);
                 }
             },
