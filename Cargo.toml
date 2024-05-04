@@ -39,7 +39,7 @@ name = "beat_detection_bench"
 harness = false
 
 [[example]]
-name = "detect-beats-from-input-in-terminal"
+name = "minimal"
 required-features = [ "recording" ]
 
 [dependencies]
