@@ -25,6 +25,7 @@ fn main() {
 
     // Each Pixel is encoded as "<:8><red:8><green:8><blue:8>".
     let rgb_buffer: Vec<u32> = vec![0 /* black */; WIDTH * HEIGHT];
+    let mut rgb_copy_buffer = rgb_buffer.clone();
     let rgb_buffer = Arc::new(Mutex::new(rgb_buffer));
 
     let mut window = Window::new(
@@ -62,21 +63,23 @@ fn main() {
         && !ctrlc_pressed.load(Ordering::SeqCst)
     {
         let mut rgb_buffer_locked = rgb_buffer.lock().unwrap();
-        for xrgb_pxl in rgb_buffer_locked.iter_mut() {
+        for (i, xrgb_pxl) in rgb_buffer_locked.iter_mut().enumerate() {
             *xrgb_pxl = u32::from_ne_bytes([
                 (xrgb_pxl.to_ne_bytes()[0] as f32 * 0.95) as u8,
                 (xrgb_pxl.to_ne_bytes()[1] as f32 * 0.95) as u8,
                 (xrgb_pxl.to_ne_bytes()[2] as f32 * 0.95) as u8,
                 0,
             ]);
+            // Update copy buffer.
+            rgb_copy_buffer[i] = *xrgb_pxl;
         }
 
-        let rgp_buffer = rgb_buffer_locked.clone();
+        // drop lock as early as possible to unblock beat detection thread.
         drop(rgb_buffer_locked);
 
         // We unwrap here as we want this code to exit if it fails.
         window
-            .update_with_buffer(&rgp_buffer, WIDTH, HEIGHT)
+            .update_with_buffer(&rgb_copy_buffer, WIDTH, HEIGHT)
             .unwrap();
     }
     handle.pause().unwrap();
