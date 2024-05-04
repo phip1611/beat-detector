@@ -80,7 +80,7 @@ impl Iterator for MaxMinIterator<'_> {
             .take(sample_count)
             // TODO by increasing this, we also have high performance
             //  improvement chances.
-            .step_by(1)
+            .step_by(2)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
                 if libm::fabsf(x_value) > libm::fabsf(y_value) {
                     Ordering::Greater
@@ -119,7 +119,7 @@ mod tests {
                 (543, 0.39106417),
                 (865, -0.068865016),
                 (1027, 0.24600971),
-                (1302, -0.3068636)
+                (1301, -0.30671102)
             ]
         );
     }

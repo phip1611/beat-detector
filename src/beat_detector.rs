@@ -217,7 +217,7 @@ mod tests {
             //
             // As long as it is reasonable small, I think this is good, I guess?
             // [0]: https://electronics.stackexchange.com/questions/372692/low-pass-filter-delay
-            Some(942)
+            Some(943)
         );
         assert_eq!(detector.update_and_detect_beat(core::iter::empty()), None);
     }
@@ -245,13 +245,13 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(256, &samples, &mut detector),
-            &[830]
+            &[829]
         );
 
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[830]
+            &[829]
         );
     }
 
@@ -263,7 +263,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[1310, 8639]
+            &[1311, 8639]
         );
     }
 
@@ -275,7 +275,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[12936, 93794, 101457, 189599, 270784, 278469]
+            &[12935, 93793, 101457, 189599, 270783, 278469]
         );
     }
 
@@ -287,7 +287,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[29077, 31225, 47052, 65812, 83769, 101994, 120138, 138130]
+            &[29077, 31225, 47051, 65813, 83769, 101995, 120139, 138129]
         );
     }
 
@@ -299,7 +299,7 @@ mod tests {
         let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
-            &[31334, 47164, 65922, 84221, 102108, 120247, 138561]
+            &[31333, 47165, 65923, 84221, 102109, 120247, 138561]
         );
     }
 }
