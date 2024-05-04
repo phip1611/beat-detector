@@ -87,8 +87,7 @@ impl Iterator for RootIterator<'_> {
 
         let next_root = iter
             // Skip while we didn't cross the x axis.
-            .skip_while(|(_, &sample)| State::from(sample) == initial_state)
-            .next()
+            .find(|(_, &sample)| State::from(sample) != initial_state)
             // We are looking for the index right before the zero.
             .map(|(index, _)| index - 1);
 
