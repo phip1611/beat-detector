@@ -38,6 +38,10 @@ recording = ["std", "dep:cpal"]
 name = "beat_detection_bench"
 harness = false
 
+[[bench]]
+name = "general"
+harness = false
+
 [[example]]
 name = "minimal-live-input"
 required-features = ["recording"]
@@ -57,11 +61,13 @@ ringbuffer = "0.15.0"
 # +++ STD DEPENDENCIES +++
 cpal = { version = "0.15", optional = true }
 
+
 [dev-dependencies]
 assert2 = "0.3.14"
 ctrlc = { version = "3.4", features = ["termination"] }
 criterion = { version = "0.5", features = [] }
 float-cmp = "0.9.0"
+itertools = "0.12.1"
 simple_logger = "5.0"
 minifb = "0.25.0"
 rand = "0.8.5"

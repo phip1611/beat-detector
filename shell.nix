@@ -10,6 +10,9 @@ pkgs.mkShell rec {
     xorg.libXcursor
     xorg.libX11
 
+    # benchmarks
+    gnuplot
+
     # Development
     nixpkgs-fmt
     rustup
