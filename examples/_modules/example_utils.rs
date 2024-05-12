@@ -1,6 +1,8 @@
+#![allow(unused)]
+
 use cpal::traits::{DeviceTrait, HostTrait};
 use log::LevelFilter;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process::exit;
 
 pub fn init_logger() {
@@ -76,6 +78,8 @@ pub fn select_audio_device() -> cpal::Device {
     }
 
     print!("Type a number: ");
+    std::io::stdout().flush().unwrap();
+
     let mut buf = [0];
     std::io::stdin().read_exact(&mut buf).unwrap();
     println!(); // newline

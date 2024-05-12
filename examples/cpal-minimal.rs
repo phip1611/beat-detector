@@ -3,11 +3,21 @@ use cpal::{BufferSize, InputCallbackInfo, StreamConfig};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+#[path = "_modules/example_utils.rs"]
+mod example_utils;
+
 /// Minimal example to explore the structure of the audio input samples we get
 /// from cpal. This example does nothing with the beat detection library.
 fn main() {
     let host = cpal::default_host();
     let dev = host.default_input_device().unwrap();
+    let x = dev
+        .supported_input_configs()
+        .unwrap()
+        .into_iter()
+        .map(|r| r)
+        .collect::<Vec<_>>();
+    dbg!(x);
     let cfg = dev.default_input_config().unwrap();
     let cfg = StreamConfig {
         channels: 1,

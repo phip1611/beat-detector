@@ -40,11 +40,11 @@ harness = false
 
 [[example]]
 name = "minimal-live-input"
-required-features = [ "recording" ]
+required-features = ["recording"]
 
 [[example]]
 name = "minimal-live-input-gui"
-required-features = [ "recording" ]
+required-features = ["recording"]
 
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
