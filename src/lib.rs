@@ -130,6 +130,7 @@ mod stdlib;
 #[cfg(test)]
 mod test_utils;
 pub mod util;
+mod downsampler;
 
 pub use audio_history::{AudioHistory, SampleInfo};
 pub use beat_detector::{BeatDetector, BeatInfo};
