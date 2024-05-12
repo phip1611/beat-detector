@@ -21,17 +21,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+use crate::util::i16_samples_to_f32;
 use std::fs::File;
 use std::path::Path;
 use std::vec::Vec;
-
-fn i16_sample_to_f32_sample(val: i16) -> f32 {
-    if val == 0 {
-        0.0
-    } else {
-        val as f32 / i16::MAX as f32
-    }
-}
 
 /// Reads a WAV file to mono audio. Returns the samples as mono audio.
 /// Additionally, it returns the sampling rate of the file.
@@ -41,11 +34,8 @@ fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<f32>, wav::Header) {
 
     // owning vector with original data in f32 format
     let original_data_f32 = if data.is_sixteen() {
-        data.as_sixteen()
-            .unwrap()
-            .iter()
-            .map(|sample| i16_sample_to_f32_sample(*sample))
-            .collect()
+        let iter = data.as_sixteen().unwrap().into_iter();
+        i16_samples_to_f32(iter.copied()).collect()
     } else if data.is_thirty_two_float() {
         data.as_thirty_two_float().unwrap().clone()
     } else {

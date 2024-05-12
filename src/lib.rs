@@ -95,6 +95,15 @@ extern crate alloc;
 #[cfg(any(test, feature = "std"))]
 extern crate std;
 
+// Better drop-in replacement for "assert!" and even better "check!" macro.
+#[cfg_attr(test, macro_use)]
+#[cfg(test)]
+extern crate assert2;
+
+#[cfg_attr(test, macro_use)]
+#[cfg(test)]
+extern crate float_cmp;
+
 mod audio_history;
 mod beat_detector;
 mod envelope_iterator;
@@ -105,6 +114,7 @@ mod stdlib;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
+pub mod util;
 
 pub use audio_history::{AudioHistory, SampleInfo};
 pub use beat_detector::{BeatDetector, BeatInfo};
