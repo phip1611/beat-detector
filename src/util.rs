@@ -29,7 +29,7 @@ pub fn f32_sample_to_i16(val: f32) -> Result<i16, OutOfRangeError> {
 /// Transforms two stereo samples (that reflect the same point in time on
 /// different channels) into one mono sample.
 #[inline]
-pub fn stereo_to_mono(l: i16, r: i16) -> i16 {
+pub const fn stereo_to_mono(l: i16, r: i16) -> i16 {
     let l = l as i32;
     let r = r as i32;
     let avg = (l + r) / 2;

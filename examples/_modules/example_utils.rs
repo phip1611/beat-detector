@@ -84,7 +84,7 @@ pub fn select_audio_device() -> cpal::Device {
     std::io::stdin().read_exact(&mut buf).unwrap();
     println!(); // newline
     let buf = std::str::from_utf8(&buf).unwrap();
-    let choice = usize::from_str_radix(buf, 10).unwrap();
+    let choice = str::parse::<usize>(buf).unwrap();
 
     // Remove element and take ownership.
     devices.swap_remove(choice).1

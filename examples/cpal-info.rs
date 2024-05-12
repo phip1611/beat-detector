@@ -10,7 +10,6 @@ fn main() {
     let supported_configs = input_device
         .supported_input_configs()
         .unwrap()
-        .into_iter()
         .collect::<Vec<_>>();
     println!("Supported input configs:");
     for cfg in supported_configs {

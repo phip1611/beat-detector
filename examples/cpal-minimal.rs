@@ -11,12 +11,7 @@ mod example_utils;
 fn main() {
     let host = cpal::default_host();
     let dev = host.default_input_device().unwrap();
-    let x = dev
-        .supported_input_configs()
-        .unwrap()
-        .into_iter()
-        .map(|r| r)
-        .collect::<Vec<_>>();
+    let x = dev.supported_input_configs().unwrap().collect::<Vec<_>>();
     dbg!(x);
     let cfg = dev.default_input_config().unwrap();
     let cfg = StreamConfig {

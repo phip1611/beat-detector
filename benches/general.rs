@@ -12,9 +12,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     let typical_sampling_rate = 44100;
     let sample_count = typical_sampling_rate;
     let mut samples_f32 = vec![0.0; sample_count];
-    samples_f32.fill_with(|| rand::random::<f32>());
+    samples_f32.fill_with(rand::random::<f32>);
     let mut samples_i16 = vec![0; sample_count];
-    samples_i16.fill_with(|| rand::random::<i16>());
+    samples_i16.fill_with(rand::random::<i16>);
 
     assert_eq!(samples_f32.len(), sample_count);
     assert_eq!(samples_i16.len(), sample_count);

@@ -41,7 +41,7 @@ pub const DEFAULT_BUFFER_SIZE: usize =
     (DEFAULT_AUDIO_HISTORY_WINDOW_MS * DEFAULT_SAMPLES_PER_SECOND) / MS_PER_SECOND;
 
 /// Sample info with time context.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct SampleInfo {
     /// The value of the sample.
     pub value: i16,
@@ -55,19 +55,6 @@ pub struct SampleInfo {
     pub timestamp: Duration,
     /// The time the sample is behind the latest data.
     pub duration_behind: Duration,
-}
-
-impl Default for SampleInfo {
-    fn default() -> Self {
-        Self {
-            value: 0,
-            value_abs: 0,
-            index: 0,
-            total_index: 0,
-            timestamp: Default::default(),
-            duration_behind: Default::default(),
-        }
-    }
 }
 
 impl PartialEq for SampleInfo {

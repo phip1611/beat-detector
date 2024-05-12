@@ -279,6 +279,7 @@ mod tests {
     use crate::test_utils;
     use std::vec::Vec;
 
+    #[allow(clippy::cognitive_complexity)]
     #[test]
     fn envelope_info_overlap() {
         let mut this = EnvelopeInfo::default();
