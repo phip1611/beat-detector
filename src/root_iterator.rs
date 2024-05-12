@@ -81,6 +81,9 @@ impl Iterator for RootIterator<'_> {
             .iter()
             .enumerate()
             .skip(self.index)
+            // Given the very high sampling rate, we can sacrifice a negligible
+            // impact on precision for better performance / fewer iterations.
+            .step_by(10)
             .skip_while(|(_, &sample)| sample.abs() < IGNORE_NOISE_THRESHOLD);
 
         let initial_state = State::from(iter.next().map(|(_, &sample)| sample)?);

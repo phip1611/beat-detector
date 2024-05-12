@@ -25,7 +25,6 @@ use crate::envelope_iterator::ENVELOPE_MIN_DURATION_MS;
 use core::cmp::Ordering;
 use core::time::Duration;
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
-use crate::downsampler::Downsampler;
 
 const SAFETY_BUFFER_FACTOR: f64 = 3.0;
 /// Length in ms of the captured audio history used for analysis.
@@ -36,12 +35,10 @@ pub(crate) const DEFAULT_AUDIO_HISTORY_WINDOW_MS: usize =
 const DEFAULT_SAMPLES_PER_SECOND: usize = 44100;
 const MS_PER_SECOND: usize = 1000;
 
-const DOWNSAMPLING_FACTOR: usize = 20;
-
 /// Default buffer size for [`AudioHistory`]. The size is a trade-off between
 /// memory efficiency and effectiveness in detecting envelops properly.
 pub const DEFAULT_BUFFER_SIZE: usize =
-    (DEFAULT_AUDIO_HISTORY_WINDOW_MS * DEFAULT_SAMPLES_PER_SECOND) / MS_PER_SECOND / DOWNSAMPLING_FACTOR;
+    (DEFAULT_AUDIO_HISTORY_WINDOW_MS * DEFAULT_SAMPLES_PER_SECOND) / MS_PER_SECOND;
 
 /// Sample info with time context.
 #[derive(Copy, Clone, Debug)]
@@ -104,7 +101,6 @@ pub struct AudioHistory {
     audio_buffer: ConstGenericRingBuffer<i16, DEFAULT_BUFFER_SIZE>,
     total_consumed_samples: usize,
     time_per_sample: f32,
-    downsampler: Downsampler,
 }
 
 impl AudioHistory {
@@ -113,9 +109,8 @@ impl AudioHistory {
         assert!(sampling_frequency.is_normal() && sampling_frequency.is_sign_positive());
         Self {
             audio_buffer,
-            time_per_sample: sampling_frequency.recip() * DOWNSAMPLING_FACTOR as f32,
+            time_per_sample: 1.0 / sampling_frequency,
             total_consumed_samples: 0,
-            downsampler: Downsampler::new(DOWNSAMPLING_FACTOR)
         }
     }
 
@@ -125,10 +120,8 @@ impl AudioHistory {
     pub fn update<I: Iterator<Item = i16>>(&mut self, mono_samples_iter: I) {
         let mut len = 0;
         mono_samples_iter.for_each(|sample| {
-            if let Some(sample) = self.downsampler.consume(sample) {
-                self.audio_buffer.push(sample);
-                len += 1;
-            }
+            self.audio_buffer.push(sample);
+            len += 1;
         });
 
         self.total_consumed_samples += len;
@@ -184,9 +177,6 @@ impl AudioHistory {
     #[inline]
     pub fn total_index_to_index(&self, total_index: usize) -> Option<usize> {
         // TODO this looks way too complicated. Probably can be simplified.
-
-        let total_index = total_index / DOWNSAMPLING_FACTOR;
-
         if self.lost_samples() == 0 {
             if total_index < self.total_consumed_samples {
                 Some(total_index)
@@ -213,7 +203,7 @@ impl AudioHistory {
     #[inline]
     fn index_to_sample_number(&self, index: usize) -> usize {
         assert!(index <= self.data().len());
-        index * DOWNSAMPLING_FACTOR + self.lost_samples()
+        index + self.lost_samples()
     }
 
     /// Returns the amount of lost samples, i.e., samples that are no in the
@@ -348,7 +338,7 @@ mod tests {
 
         assert_eq!(
             (history.passed_time().as_secs_f32() * 1000.0).round() / 1000.0,
-            7.998
+            7.999
         );
 
         let timestamp_at_end = history

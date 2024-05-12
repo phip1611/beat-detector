@@ -78,6 +78,7 @@ impl Iterator for MaxMinIterator<'_> {
             .enumerate()
             .skip(begin_index)
             .take(sample_count)
+            .step_by(10)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
                 if x_value.abs() > y_value.abs() {
                     Ordering::Greater
