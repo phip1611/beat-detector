@@ -44,7 +44,7 @@ fn main() {
     let handle = {
         let rgb_buffer = rgb_buffer.clone();
         recording::start_detector_thread(
-            move |info| {
+            move |_info| {
                 println!("found beat!");
                 let mut rgb_buffer_locked = rgb_buffer.lock().unwrap();
                 for xrgb_pxl in rgb_buffer_locked.iter_mut() {

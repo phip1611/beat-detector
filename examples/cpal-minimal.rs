@@ -1,5 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{BufferSize, InputCallbackInfo, StreamConfig};
+use cpal::{BufferSize, StreamConfig};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -42,7 +42,7 @@ fn main() {
                     println!("{sample:>6}, max={max:>6}, min={min:>6}");
                 }
             },
-            |info| {},
+            |e| eprintln!("error: {e:?}"),
             None,
         )
         .unwrap();
