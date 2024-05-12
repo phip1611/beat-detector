@@ -246,6 +246,7 @@ impl AudioHistory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::iter;
 
     #[test]
     fn buffer_len_sane() {
@@ -260,7 +261,7 @@ mod tests {
         let mut hist = AudioHistory::new(2.0);
         assert_eq!(hist.total_consumed_samples, 0);
 
-        hist.update(core::iter::once(0));
+        hist.update(iter::once(0));
         assert_eq!(hist.total_consumed_samples, 1);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(0.5));
 
@@ -351,12 +352,12 @@ mod tests {
     fn sample_info() {
         let mut hist = AudioHistory::new(1.0);
 
-        hist.update(core::iter::once(0));
+        hist.update(iter::once(0));
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs(0)
         );
-        hist.update(core::iter::once(0));
+        hist.update(iter::once(0));
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs(1)
@@ -424,11 +425,11 @@ mod tests {
         let mut history = AudioHistory::new(1.0);
         for i in 0..history.data().capacity() {
             assert_eq!(history.total_index_to_index(i), None);
-            history.update(core::iter::once(0));
+            history.update(iter::once(0));
             assert_eq!(history.total_index_to_index(i), Some(i));
         }
 
-        history.update(core::iter::once(0));
+        history.update(iter::once(0));
         // No longer existing.
         assert_eq!(history.total_index_to_index(0), None);
         assert_eq!(history.total_index_to_index(1), Some(0));
