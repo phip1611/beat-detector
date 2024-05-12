@@ -133,7 +133,7 @@ mod tests {
     use crate::test_utils;
     use std::vec::Vec;
 
-    fn _print_sample_stats((samples, header): (Vec<f32>, wav::Header)) {
+    fn _print_sample_stats((samples, header): (Vec<i16>, wav::Header)) {
         let mut history = AudioHistory::new(header.sampling_rate as f32);
         history.update(samples.iter().copied());
 
@@ -141,22 +141,16 @@ mod tests {
 
         let abs_peak_value_iter = all_peaks.iter().map(|info| info.value_abs);
 
-        let max: f32 = abs_peak_value_iter
-            .clone()
-            .reduce(|a, b| if a > b { a } else { b })
-            .unwrap();
+        let max: i16 = abs_peak_value_iter.clone().max().unwrap();
+        let min: i16 = abs_peak_value_iter.clone().min().unwrap();
 
-        let min: f32 = abs_peak_value_iter
-            .clone()
-            .reduce(|a, b| if a > b { b } else { a })
-            .unwrap();
-
-        let avg: f32 = abs_peak_value_iter.reduce(|a, b| a + b).unwrap() / all_peaks.len() as f32;
+        let avg: i16 =
+            (abs_peak_value_iter.map(|v| v as u64).sum::<u64>() / all_peaks.len() as u64) as i16;
 
         let mut all_peaks_sorted = all_peaks.clone();
         all_peaks_sorted.sort_by(|a, b| a.value_abs.partial_cmp(&b.value_abs).unwrap());
 
-        let median: f32 = all_peaks_sorted[all_peaks_sorted.len() / 2].value_abs;
+        let median: i16 = all_peaks_sorted[all_peaks_sorted.len() / 2].value_abs;
 
         eprintln!("max abs peak     : {max:.3}");
         eprintln!("min abs peak     : {min:.3}");

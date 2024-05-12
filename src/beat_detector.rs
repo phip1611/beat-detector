@@ -105,7 +105,7 @@ impl BeatDetector {
     /// ```
     pub fn update_and_detect_beat(
         &mut self,
-        mono_samples_iter: impl Iterator<Item = f32>,
+        mono_samples_iter: impl Iterator<Item = i16>,
     ) -> Option<BeatInfo> {
         self.consume_audio(mono_samples_iter);
 
@@ -123,10 +123,13 @@ impl BeatDetector {
 
     /// Applies the data from the given audio input to the lowpass filter (if
     /// necessary) and adds it to the internal audio window.
-    fn consume_audio(&mut self, mono_samples_iter: impl Iterator<Item = f32>) {
+    fn consume_audio(&mut self, mono_samples_iter: impl Iterator<Item = i16>) {
         let iter = mono_samples_iter.map(|sample| {
             if self.needs_lowpass_filter {
-                self.lowpass_filter.run(sample)
+                // For the lowpass filter, it is perfectly fine to just
+                // cast the types. We do not need to limit the i16 value to
+                // the sample value of typcial f32 samples.
+                self.lowpass_filter.run(sample as f32) as i16
             } else {
                 sample
             }
@@ -175,24 +178,24 @@ mod tests {
             detector.update_and_detect_beat(samples.iter().copied()),
             Some(EnvelopeInfo {
                 from: SampleInfo {
-                    value: 0.11386456,
-                    value_abs: 0.11386456,
+                    value: 0,
+                    value_abs: 0,
                     index: 256,
                     total_index: 256,
                     timestamp: Duration::from_secs_f32(0.005804989),
                     duration_behind: Duration::from_secs_f32(0.401904759)
                 },
                 to: SampleInfo {
-                    value: 0.39106417,
-                    value_abs: 0.39106417,
+                    value: 0,
+                    value_abs: 0,
                     index: 1971,
                     total_index: 1971,
                     timestamp: Duration::from_secs_f32(0.044693876),
                     duration_behind: Duration::from_secs_f32(0.363015872),
                 },
                 max: SampleInfo {
-                    value: -0.6453749,
-                    value_abs: 0.6453749,
+                    value: -0,
+                    value_abs: 0,
                     index: 830,
                     total_index: 830,
                     timestamp: Duration::from_secs_f32(0.018820861),
@@ -224,7 +227,7 @@ mod tests {
 
     fn simulate_dynamic_audio_source(
         chunk_size: usize,
-        samples: &[f32],
+        samples: &[i16],
         detector: &mut BeatDetector,
     ) -> Vec<usize> {
         samples

@@ -24,20 +24,21 @@ SOFTWARE.
 use crate::{AudioHistory, SampleInfo};
 use ringbuffer::RingBuffer;
 
-const IGNORE_NOISE_THRESHOLD: f32 = 0.05;
+const IGNORE_NOISE_THRESHOLD: i16 = (i16::MAX as f32 * 0.05) as i16;
 
-/// THe state a sample. Either above zero or below.
+/// The state a sample. Either above x-axis or below.
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum State {
+    /// Above x-axis.
     Above,
+    /// Below x-axis.
     Below,
 }
 
-impl From<f32 /* sample */> for State {
+impl From<i16 /* sample */> for State {
     #[inline(always)]
-    fn from(sample: f32) -> Self {
-        debug_assert!(libm::fabsf(sample) <= 1.0);
-        if sample.is_sign_positive() {
+    fn from(sample: i16) -> Self {
+        if sample.is_positive() {
             Self::Above
         } else {
             Self::Below
@@ -83,7 +84,7 @@ impl Iterator for RootIterator<'_> {
             // Given the very high sampling rate, we can sacrifice a negligible
             // impact on precision for better performance / fewer iterations.
             .step_by(10)
-            .skip_while(|(_, &sample)| libm::fabsf(sample) < IGNORE_NOISE_THRESHOLD);
+            .skip_while(|(_, &sample)| sample.abs() < IGNORE_NOISE_THRESHOLD);
 
         let initial_state = State::from(iter.next().map(|(_, &sample)| sample)?);
 
@@ -107,6 +108,7 @@ impl Iterator for RootIterator<'_> {
 mod tests {
     use super::*;
     use crate::test_utils;
+    use crate::util::i16_sample_to_f32;
     use std::vec::Vec;
 
     #[test]
@@ -118,15 +120,15 @@ mod tests {
         let iter = RootIterator::new(&history, None);
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index, info.value)).collect::<Vec<_>>(),
+            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value))).collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (369, 0.030869473),
+                (369, 0.030854214),
                 (689, -0.013336589),
-                (929, 0.013290811),
-                (1129, -0.030655842),
-                (1449, 0.03350932)
+                (929, 0.013275552),
+                (1129, -0.030640583),
+                (1449, 0.033509325)
             ]
         );
     }
@@ -140,12 +142,12 @@ mod tests {
         let iter = RootIterator::new(&history, Some(929 /* index taken from test above */ + 1));
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index, info.value)).collect::<Vec<_>>(),
+            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value))).collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (1129, -0.030655842),
-                (1449, 0.03350932)
+                (1129, -0.030640583),
+                (1449, 0.033509325)
             ]
         );
     }

@@ -105,7 +105,7 @@ pub fn start_detector_thread(
     let stream = input_dev
         .build_input_stream(
             &input_config,
-            move |data: &[f32], _info| {
+            move |data: &[i16], _info| {
                 log::trace!(
                     "audio input callback: {} samples ({} ms, sampling rate = {sampling_rate})",
                     data.len(),

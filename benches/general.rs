@@ -35,6 +35,21 @@ fn criterion_benchmark(c: &mut Criterion) {
     );
 
     c.bench_function(
+        &format!("{sample_count} convert samples (i16 to f32 (just cast))"),
+        |b| {
+            b.iter(|| {
+                let _res = black_box(
+                    samples_i16
+                        .iter()
+                        .copied()
+                        .map(|s| black_box(s as f32))
+                        .collect::<Vec<_>>(),
+                );
+            })
+        },
+    );
+
+    c.bench_function(
         &format!("{sample_count} convert samples (f32 to i16)"),
         |b| {
             b.iter(|| {

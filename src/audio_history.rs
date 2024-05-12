@@ -43,10 +43,10 @@ pub const DEFAULT_BUFFER_SIZE: usize =
 /// Sample info with time context.
 #[derive(Copy, Clone, Debug)]
 pub struct SampleInfo {
-    /// The value of the sample in range `[-1.0..=1.0]`.
-    pub value: f32,
+    /// The value of the sample.
+    pub value: i16,
     /// Absolute value of `value`.
-    pub value_abs: f32,
+    pub value_abs: i16,
     /// The current index in [`AudioHistory`].
     pub index: usize,
     /// The total index since the beginning of audio history.
@@ -60,8 +60,8 @@ pub struct SampleInfo {
 impl Default for SampleInfo {
     fn default() -> Self {
         Self {
-            value: 0.0,
-            value_abs: 0.0,
+            value: 0,
+            value_abs: 0,
             index: 0,
             total_index: 0,
             timestamp: Default::default(),
@@ -98,7 +98,7 @@ impl Ord for SampleInfo {
 /// underlying ringbuffer.
 #[derive(Debug)]
 pub struct AudioHistory {
-    audio_buffer: ConstGenericRingBuffer<f32, DEFAULT_BUFFER_SIZE>,
+    audio_buffer: ConstGenericRingBuffer<i16, DEFAULT_BUFFER_SIZE>,
     total_consumed_samples: usize,
     time_per_sample: f32,
 }
@@ -117,15 +117,9 @@ impl AudioHistory {
     /// Update the audio history with fresh samples. The audio samples are
     /// expected to be in mono channel format.
     #[inline]
-    pub fn update<I: Iterator<Item = f32>>(&mut self, mono_samples_iter: I) {
+    pub fn update<I: Iterator<Item = i16>>(&mut self, mono_samples_iter: I) {
         let mut len = 0;
         mono_samples_iter.for_each(|sample| {
-            debug_assert!(sample.is_finite());
-            debug_assert!(
-                libm::fabsf(sample) <= 1.0,
-                "sample must be in range `[-1.0..=1.0]`, but is {sample}"
-            );
-
             self.audio_buffer.push(sample);
             len += 1;
         });
@@ -156,7 +150,7 @@ impl AudioHistory {
 
     /// Access the underlying data storage.
     #[inline]
-    pub const fn data(&self) -> &ConstGenericRingBuffer<f32, DEFAULT_BUFFER_SIZE> {
+    pub const fn data(&self) -> &ConstGenericRingBuffer<i16, DEFAULT_BUFFER_SIZE> {
         &self.audio_buffer
     }
 
@@ -172,7 +166,7 @@ impl AudioHistory {
             index,
             timestamp,
             value,
-            value_abs: libm::fabsf(value),
+            value_abs: value.abs(),
             total_index: self.index_to_sample_number(index),
             duration_behind: self.timestamp_of_index(self.data().len() - 1) - timestamp,
         }
@@ -252,7 +246,6 @@ impl AudioHistory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::vec::Vec;
 
     #[test]
     fn buffer_len_sane() {
@@ -267,11 +260,11 @@ mod tests {
         let mut hist = AudioHistory::new(2.0);
         assert_eq!(hist.total_consumed_samples, 0);
 
-        hist.update(core::iter::once(0.0));
+        hist.update(core::iter::once(0));
         assert_eq!(hist.total_consumed_samples, 1);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(0.5));
 
-        hist.update([0.0, 0.0].iter().copied());
+        hist.update([0, 0].iter().copied());
         assert_eq!(hist.total_consumed_samples, 3);
         assert_eq!(hist.passed_time(), Duration::from_secs_f32(1.5));
     }
@@ -280,10 +273,7 @@ mod tests {
     fn index_to_sample_number_works_across_ringbuffer_overflow() {
         let mut hist = AudioHistory::new(2.0);
 
-        // buffer capacity + 10 items
-        let test_data = (0..DEFAULT_BUFFER_SIZE + 10)
-            .map(|x| x as f32 / (DEFAULT_BUFFER_SIZE + 10) as f32)
-            .collect::<Vec<_>>();
+        let test_data = [0; DEFAULT_BUFFER_SIZE + 10];
 
         hist.update(test_data[0..10].iter().copied());
         assert_eq!(hist.index_to_sample_number(0), 0);
@@ -317,10 +307,7 @@ mod tests {
     fn timestamp_of_index_properly_calculated() {
         let mut hist = AudioHistory::new(2.0);
 
-        // buffer capacity + 10 items
-        let test_data = (0..DEFAULT_BUFFER_SIZE + 10)
-            .map(|x| x as f32 / (DEFAULT_BUFFER_SIZE + 10) as f32)
-            .collect::<Vec<_>>();
+        let test_data = [0; DEFAULT_BUFFER_SIZE + 10];
 
         hist.update(test_data[0..10].iter().copied());
         assert_eq!(hist.timestamp_of_index(0), Duration::from_secs_f32(0.0));
@@ -364,12 +351,12 @@ mod tests {
     fn sample_info() {
         let mut hist = AudioHistory::new(1.0);
 
-        hist.update(core::iter::once(0.0));
+        hist.update(core::iter::once(0));
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs(0)
         );
-        hist.update(core::iter::once(0.0));
+        hist.update(core::iter::once(0));
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
             Duration::from_secs(1)
@@ -379,7 +366,7 @@ mod tests {
             Duration::from_secs(0)
         );
 
-        hist.update([0.0].repeat(hist.data().capacity() * 2).iter().copied());
+        hist.update([0].repeat(hist.data().capacity() * 2).iter().copied());
 
         assert_eq!(
             hist.index_to_sample_info(0).duration_behind,
@@ -437,11 +424,11 @@ mod tests {
         let mut history = AudioHistory::new(1.0);
         for i in 0..history.data().capacity() {
             assert_eq!(history.total_index_to_index(i), None);
-            history.update(core::iter::once(0.0));
+            history.update(core::iter::once(0));
             assert_eq!(history.total_index_to_index(i), Some(i));
         }
 
-        history.update(core::iter::once(0.0));
+        history.update(core::iter::once(0));
         // No longer existing.
         assert_eq!(history.total_index_to_index(0), None);
         assert_eq!(history.total_index_to_index(1), Some(0));
