@@ -1,6 +1,8 @@
+#![allow(unused)]
+
 use cpal::traits::{DeviceTrait, HostTrait};
 use log::LevelFilter;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process::exit;
 
 pub fn init_logger() {
@@ -76,11 +78,13 @@ pub fn select_audio_device() -> cpal::Device {
     }
 
     print!("Type a number: ");
+    std::io::stdout().flush().unwrap();
+
     let mut buf = [0];
     std::io::stdin().read_exact(&mut buf).unwrap();
     println!(); // newline
     let buf = std::str::from_utf8(&buf).unwrap();
-    let choice = usize::from_str_radix(buf, 10).unwrap();
+    let choice = str::parse::<usize>(buf).unwrap();
 
     // Remove element and take ownership.
     devices.swap_remove(choice).1

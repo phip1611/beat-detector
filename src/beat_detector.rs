@@ -21,6 +21,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+//! Module for [`BeatDetector`].
+
 use crate::EnvelopeInfo;
 use crate::{AudioHistory, EnvelopeIterator};
 use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
@@ -32,6 +34,40 @@ const CUTOFF_FREQUENCY_HZ: f32 = 95.0;
 /// Information about a beat.
 pub type BeatInfo = EnvelopeInfo;
 
+/// Beat detector following the properties described in the
+/// [module description].
+///
+/// ## Example with audio source emitting mono samples
+/// ```rust
+/// use beat_detector::BeatDetector;
+/// let mono_samples = [0, 500, -800, 700 /*, ... */];
+/// let mut detector = BeatDetector::new(44100.0, true);
+///
+/// // TODO regularly call this with the latest audio data.
+/// let is_beat = detector.update_and_detect_beat(
+///     mono_samples.iter().copied()
+/// );
+/// ```
+///
+/// ## Example with audio source emitting stereo samples
+/// ```rust
+/// use beat_detector::BeatDetector;
+/// use beat_detector::util::stereo_to_mono;
+/// // Let's pretend this is interleaved LRLR stereo data.
+/// let stereo_samples =  [0, 500, -800, 700 /*, ... */];
+/// let mut detector = BeatDetector::new(44100.0, true);
+///
+/// // TODO regularly call this with the latest audio data.
+/// let is_beat = detector.update_and_detect_beat(
+///     stereo_samples.chunks(2).map(|slice| {
+///         let l = slice[0];
+///         let r = slice[1];
+///         stereo_to_mono(l, r)
+///     })
+/// );
+/// ```
+///
+/// [module description]: crate
 #[derive(Debug)]
 pub struct BeatDetector {
     lowpass_filter: DirectForm1<f32>,
@@ -46,6 +82,10 @@ pub struct BeatDetector {
 }
 
 impl BeatDetector {
+    /// Creates a new beat detector. It is recommended to pass `true` to
+    /// `needs_lowpass_filter`. If you know that the audio source has already
+    /// run through a low-pass filter, you can set it to `false` to save
+    /// a few cycles, with results in a slightly lower latency.
     pub fn new(sampling_frequency_hz: f32, needs_lowpass_filter: bool) -> Self {
         let lowpass_filter = Self::create_lowpass_filter(sampling_frequency_hz);
         Self {
@@ -64,54 +104,24 @@ impl BeatDetector {
     /// - the latency is low
     /// - no beats are missed
     ///
-    /// From experience, Linux audio input libraries give you a 20-40ms audio
-    /// buffer every 20-40ms with the latest data. That's a good rule of thumb.
-    /// This corresponds to 1800 mono samples at a sampling rate of 44.1kHz.
+    /// From experience, Linux audio input libraries (using ALSA as backend)
+    /// give you a 20-40ms audio buffer every 20-40ms with the latest data.
+    /// That's a good rule of thumb. This corresponds to 1800 mono samples at a
+    /// sampling rate of 44.1kHz.
     ///
     /// If new audio data contains two beats, only the first one will be
     /// discovered. On the next invocation, the next beat will be discovered,
     /// if still present in the internal audio window.
-    ///
-    /// # Input
-    ///
-    /// The input iterator must emit mono samples. Every sample **must** be in
-    /// range `[-1.0..=1.0]`.
-    ///
-    /// ## Example with audio source emitting mono samples
-    /// ```rust
-    /// use beat_detector::BeatDetector;
-    /// let mono_samples = [0.0, 0.5, -0.8, 0.7];
-    /// let mut detector = BeatDetector::new(44100.0, false);
-    ///
-    /// let is_beat = detector.update_and_detect_beat(
-    ///     mono_samples.iter().copied()
-    /// );
-    /// ```
-    ///
-    /// ## Example with audio source emitting stereo samples
-    /// ```rust
-    /// use beat_detector::BeatDetector;
-    /// // Let's pretend this is interleaved LRLR stereo data.
-    /// let stereo_samples = [0.0, 0.5, -0.8, 0.7];
-    /// let mut detector = BeatDetector::new(44100.0, false);
-    ///
-    /// let is_beat = detector.update_and_detect_beat(
-    ///     stereo_samples.chunks(2).map(|slice| {
-    ///         let l = slice[0];
-    ///         let r = slice[1];
-    ///         (l + r) / 2.0
-    ///     })
-    /// );
-    /// ```
     pub fn update_and_detect_beat(
         &mut self,
-        mono_samples_iter: impl Iterator<Item = f32>,
+        mono_samples_iter: impl Iterator<Item = i16>,
     ) -> Option<BeatInfo> {
         self.consume_audio(mono_samples_iter);
 
         let search_begin_index = self
             .previous_beat
             .and_then(|info| self.history.total_index_to_index(info.to.total_index));
+
         // Envelope iterator with respect to previous beats.
         let mut envelope_iter = EnvelopeIterator::new(&self.history, search_begin_index);
         let beat = envelope_iter.next();
@@ -123,10 +133,23 @@ impl BeatDetector {
 
     /// Applies the data from the given audio input to the lowpass filter (if
     /// necessary) and adds it to the internal audio window.
-    fn consume_audio(&mut self, mono_samples_iter: impl Iterator<Item = f32>) {
+    fn consume_audio(&mut self, mono_samples_iter: impl Iterator<Item = i16>) {
         let iter = mono_samples_iter.map(|sample| {
             if self.needs_lowpass_filter {
-                self.lowpass_filter.run(sample)
+                // For the lowpass filter, it is perfectly fine to just
+                // cast the types. We do not need to limit the i16 value to
+                // the sample value of typical f32 samples. This is just
+                // one instruction on x86. On ARM, this is also a
+                // shortcut.
+                let sample = self.lowpass_filter.run(sample as f32);
+                // We know that the number will still be valid and not suddenly
+                // NAN or Infinite, assuming that lowpass filter performs
+                // correctly. So we use the fast-path for the conversion.
+                // This is one instruction on x86 vs six:
+                // https://rust.godbolt.org/z/5sGToG9rK
+                debug_assert!(!sample.is_infinite());
+                debug_assert!(!sample.is_nan());
+                unsafe { sample.to_int_unchecked() }
             } else {
                 sample
             }
@@ -175,24 +198,24 @@ mod tests {
             detector.update_and_detect_beat(samples.iter().copied()),
             Some(EnvelopeInfo {
                 from: SampleInfo {
-                    value: 0.11386456,
-                    value_abs: 0.11386456,
+                    value: 0,
+                    value_abs: 0,
                     index: 256,
                     total_index: 256,
                     timestamp: Duration::from_secs_f32(0.005804989),
                     duration_behind: Duration::from_secs_f32(0.401904759)
                 },
                 to: SampleInfo {
-                    value: 0.39106417,
-                    value_abs: 0.39106417,
+                    value: 0,
+                    value_abs: 0,
                     index: 1971,
                     total_index: 1971,
                     timestamp: Duration::from_secs_f32(0.044693876),
                     duration_behind: Duration::from_secs_f32(0.363015872),
                 },
                 max: SampleInfo {
-                    value: -0.6453749,
-                    value_abs: 0.6453749,
+                    value: -0,
+                    value_abs: 0,
                     index: 830,
                     total_index: 830,
                     timestamp: Duration::from_secs_f32(0.018820861),
@@ -224,7 +247,7 @@ mod tests {
 
     fn simulate_dynamic_audio_source(
         chunk_size: usize,
-        samples: &[f32],
+        samples: &[i16],
         detector: &mut BeatDetector,
     ) -> Vec<usize> {
         samples

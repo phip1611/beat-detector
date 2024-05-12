@@ -1,5 +1,13 @@
 # Beat Detector - Audio Beat Detection Library Written In Rust
 
+beat-detector detects beats in live audio, but can also be used for post
+analysis of audio data. It is a library written in Rust that is
+`no_std`-compatible and doesn't need `alloc`.
+
+beat-detector was developed with typical sampling rates and bit depths in
+mind, namely 44.1 kHz, 48.0 kHz, and 16 bit. Other input sources might work
+as well.
+
 # Performance / Latency
 On a realistic workload each analysis step of my algorithm, i.e., on each new audio input, took 0.5ms on a Raspberry
 Pi and 0.05ms on an Intel i5-10600K. The benchmark binary was build as optimized release build. Thus, this is the

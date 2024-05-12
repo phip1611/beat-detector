@@ -1,8 +1,9 @@
 [package]
 name = "beat-detector"
 description = """
-beat-detector is a `no_std`-compatible and alloc-free library written in Rust
-for detecting beats in audio. It can be used for both post- and live detection.
+beat-detector detects beats in live audio, but can also be used for post
+analysis of audio data. It is a library written in Rust that is
+`no_std`-compatible and doesn't need `alloc`.
 """
 version = "0.2.0"
 authors = ["Philipp Schuster <phip1611@gmail.com>"]
@@ -38,13 +39,17 @@ recording = ["std", "dep:cpal"]
 name = "beat_detection_bench"
 harness = false
 
+[[bench]]
+name = "general"
+harness = false
+
 [[example]]
 name = "minimal-live-input"
-required-features = [ "recording" ]
+required-features = ["recording"]
 
 [[example]]
 name = "minimal-live-input-gui"
-required-features = [ "recording" ]
+required-features = ["recording"]
 
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
@@ -57,11 +62,16 @@ ringbuffer = "0.15.0"
 # +++ STD DEPENDENCIES +++
 cpal = { version = "0.15", optional = true }
 
+
 [dev-dependencies]
+assert2 = "0.3.14"
 ctrlc = { version = "3.4", features = ["termination"] }
 criterion = { version = "0.5", features = [] }
+float-cmp = "0.9.0"
+itertools = "0.12.1"
 simple_logger = "5.0"
 minifb = "0.25.0"
+rand = "0.8.5"
 wav = "1.0"
 
 [profile.dev]

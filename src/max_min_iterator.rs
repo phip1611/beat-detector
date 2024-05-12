@@ -80,7 +80,7 @@ impl Iterator for MaxMinIterator<'_> {
             .take(sample_count)
             .step_by(10)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
-                if libm::fabsf(x_value) > libm::fabsf(y_value) {
+                if x_value.abs() > y_value.abs() {
                     Ordering::Greater
                 } else {
                     Ordering::Less
@@ -99,6 +99,7 @@ impl Iterator for MaxMinIterator<'_> {
 mod tests {
     use super::*;
     use crate::test_utils;
+    use crate::util::i16_sample_to_f32;
     use std::vec::Vec;
 
     #[test]
@@ -110,14 +111,15 @@ mod tests {
         let iter = MaxMinIterator::new(&history, None);
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index, info.value)).collect::<Vec<_>>(),
+            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value)))
+                .collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (539, 0.39056063),
-                (859, -0.068437755),
+                (539, 0.39054537),
+                (859, -0.0684225),
                 (1029, 0.24597919),
-                (1299, -0.3066042),
+                (1299, -0.30658895),
             ]
         );
     }

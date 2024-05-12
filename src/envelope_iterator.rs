@@ -28,7 +28,7 @@ use core::time::Duration;
 use ringbuffer::RingBuffer;
 
 /// Threshold to ignore noise.
-const ENVELOPE_MIN_VALUE: f32 = 0.1;
+const ENVELOPE_MIN_VALUE: i16 = (i16::MAX as f32 * 0.1) as i16;
 
 /// Ratio between the maximum absolute peak and the absolute average, so that
 /// we can be sure there is a clear envelope.
@@ -109,22 +109,26 @@ impl Iterator for EnvelopeIterator<'_> {
         // Find average.
         let all_peaks_iter =
             MaxMinIterator::new(self.buffer, None /* avg calc over whole history */);
-        let peaks_count = all_peaks_iter.clone().count() as f32;
+        let peaks_count = all_peaks_iter.clone().count() as u64;
         let peaks_sum = all_peaks_iter
-            .map(|info| info.value_abs)
+            .map(|info| info.value_abs as u64)
             .reduce(|a, b| a + b)?;
         let peaks_avg = peaks_sum / peaks_count;
 
         // Sanity checks.
-        debug_assert!(peaks_avg > 0.0);
-        debug_assert!(peaks_avg <= 1.0);
+        debug_assert!(peaks_avg > 0);
+        debug_assert!(peaks_avg <= i16::MAX as u64);
 
         // Find max of envelope.
         let envelope_max = MaxMinIterator::new(self.buffer, Some(envelope_begin.index + 1))
             // ignore irrelevant peaks
-            .skip_while(|info| info.value_abs / peaks_avg < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
+            .skip_while(|info| {
+                (info.value_abs as f32 / peaks_avg as f32) < ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO
+            })
             // look at interesting peaks
-            .take_while(|info| info.value_abs / peaks_avg >= ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO)
+            .take_while(|info| {
+                (info.value_abs as f32 / peaks_avg as f32) >= ENVELOPE_MAX_PEAK_TO_AVG_MIN_RATIO
+            })
             // get the maximum
             .reduce(|a, b| if a.value_abs > b.value_abs { a } else { b })?;
 
@@ -179,7 +183,7 @@ fn find_descending_peak_trend_end(buffer: &AudioHistory, begin_index: usize) -> 
                 return true;
             }
 
-            let next_to_current_factor = val_next / val_curr;
+            let next_to_current_factor = val_next as f32 / val_curr as f32;
             debug_assert!(next_to_current_factor > 1.0);
 
             // nextnext continues descending trend
@@ -275,6 +279,7 @@ mod tests {
     use crate::test_utils;
     use std::vec::Vec;
 
+    #[allow(clippy::cognitive_complexity)]
     #[test]
     fn envelope_info_overlap() {
         let mut this = EnvelopeInfo::default();

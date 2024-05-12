@@ -21,51 +21,46 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+use crate::util::{f32_sample_to_i16, stereo_to_mono};
+use itertools::Itertools;
 use std::fs::File;
 use std::path::Path;
 use std::vec::Vec;
-
-fn i16_sample_to_f32_sample(val: i16) -> f32 {
-    if val == 0 {
-        0.0
-    } else {
-        val as f32 / i16::MAX as f32
-    }
-}
+use wav::BitDepth;
 
 /// Reads a WAV file to mono audio. Returns the samples as mono audio.
 /// Additionally, it returns the sampling rate of the file.
-fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<f32>, wav::Header) {
+fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<i16>, wav::Header) {
     let mut file = File::open(file).unwrap();
     let (header, data) = wav::read(&mut file).unwrap();
 
     // owning vector with original data in f32 format
-    let original_data_f32 = if data.is_sixteen() {
-        data.as_sixteen()
-            .unwrap()
-            .iter()
-            .map(|sample| i16_sample_to_f32_sample(*sample))
-            .collect()
-    } else if data.is_thirty_two_float() {
-        data.as_thirty_two_float().unwrap().clone()
-    } else {
-        panic!("unsupported format");
+    let data = match data {
+        BitDepth::Sixteen(samples) => samples,
+        BitDepth::ThirtyTwoFloat(samples) => samples
+            .into_iter()
+            .map(f32_sample_to_i16)
+            .map(Result::unwrap)
+            .collect::<Vec<_>>(),
+        _ => todo!("{data:?} not supported yet"),
     };
 
-    assert!(
-        !original_data_f32.iter().any(|&x| libm::fabsf(x) > 1.0),
-        "float audio data must be in interval [-1, 1]."
-    );
-
     if header.channel_count == 1 {
-        (original_data_f32, header)
+        (data, header)
     } else if header.channel_count == 2 {
-        let mut mono_audio = Vec::new();
-        for sample in original_data_f32.chunks(2) {
-            let mono_sample = (sample[0] + sample[1]) / 2.0;
-            mono_audio.push(mono_sample);
-        }
-        (mono_audio, header)
+        let data = data
+            .into_iter()
+            .chunks(2)
+            .into_iter()
+            .map(|mut lr| {
+                let l = lr.next().unwrap();
+                let r = lr
+                    .next()
+                    .expect("should have an even number of LRLR samples");
+                stereo_to_mono(l, r)
+            })
+            .collect::<Vec<_>>();
+        (data, header)
     } else {
         panic!("unsupported format!");
     }
@@ -80,43 +75,43 @@ pub mod samples {
 
     /// Returns the mono samples of the holiday sample (long version)
     /// together with the sampling rate.
-    pub fn holiday_long() -> (Vec<f32>, wav::Header) {
+    pub fn holiday_long() -> (Vec<i16>, wav::Header) {
         read_wav_to_mono("res/holiday_lowpassed--long.wav")
     }
 
     /// Returns the mono samples of the holiday sample (excerpt version)
     /// together with the sampling rate.
-    pub fn holiday_excerpt() -> (Vec<f32>, wav::Header) {
+    pub fn holiday_excerpt() -> (Vec<i16>, wav::Header) {
         read_wav_to_mono("res/holiday_lowpassed--excerpt.wav")
     }
 
     /// Returns the mono samples of the holiday sample (single-beat version)
     /// together with the sampling rate.
-    pub fn holiday_single_beat() -> (Vec<f32>, wav::Header) {
+    pub fn holiday_single_beat() -> (Vec<i16>, wav::Header) {
         read_wav_to_mono("res/holiday_lowpassed--single-beat.wav")
     }
 
     /// Returns the mono samples of the "sample1" sample (long version)
     /// together with the sampling rate.
-    pub fn sample1_long() -> (Vec<f32>, wav::Header) {
+    pub fn sample1_long() -> (Vec<i16>, wav::Header) {
         read_wav_to_mono("res/sample1_lowpassed--long.wav")
     }
 
     /// Returns the mono samples of the "sample1" sample (single-beat version)
     /// together with the sampling rate.
-    pub fn sample1_single_beat() -> (Vec<f32>, wav::Header) {
+    pub fn sample1_single_beat() -> (Vec<i16>, wav::Header) {
         read_wav_to_mono("res/sample1_lowpassed--single-beat.wav")
     }
 
     /// Returns the mono samples of the "sample1" sample (double-beat version)
     /// together with the sampling rate.
-    pub fn sample1_double_beat() -> (Vec<f32>, wav::Header) {
+    pub fn sample1_double_beat() -> (Vec<i16>, wav::Header) {
         read_wav_to_mono("res/sample1_lowpassed--double-beat.wav")
     }
 
     #[test]
     fn test_samples_are_as_long_as_expected() {
-        fn to_duration_in_seconds((samples, header): (Vec<f32>, wav::Header)) -> f32 {
+        fn to_duration_in_seconds((samples, header): (Vec<i16>, wav::Header)) -> f32 {
             // Although my code is generic regarding the sampling rate, in my
             // demo samples, I only use this sampling rate. So let's do a
             // sanity check.
