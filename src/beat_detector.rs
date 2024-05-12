@@ -128,8 +128,18 @@ impl BeatDetector {
             if self.needs_lowpass_filter {
                 // For the lowpass filter, it is perfectly fine to just
                 // cast the types. We do not need to limit the i16 value to
-                // the sample value of typcial f32 samples.
-                self.lowpass_filter.run(sample as f32) as i16
+                // the sample value of typical f32 samples. This is just
+                // one instruction on x86. On ARM, this is also a
+                // shortcut.
+                let sample = self.lowpass_filter.run(sample as f32);
+                // We know that the number will still be valid and not suddenly
+                // NAN or Infinite, assuming that lowpass filter performs
+                // correctly. So we use the fast-path for the conversion.
+                // This is one instruction on x86 vs six:
+                // https://rust.godbolt.org/z/5sGToG9rK
+                debug_assert!(!sample.is_infinite());
+                debug_assert!(!sample.is_nan());
+                unsafe { sample.to_int_unchecked() }
             } else {
                 sample
             }
