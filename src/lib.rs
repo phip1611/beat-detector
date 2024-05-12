@@ -21,20 +21,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-//! beat-detector is a `no_std`-compatible and alloc-free library written in
-//! Rust for detecting beats in audio. It can be used for both post- and live
-//! detection.
+//! beat-detector detects beats in live audio, but can also be used for post
+//! analysis of audio data. It is a library written in Rust that is
+//! `no_std`-compatible and doesn't need `alloc`.
+//!
+//! beat-detector was developed with typical sampling rates and bit depths in
+//! mind, namely 44.1 kHz, 48.0 kHz, and 16 bit. Other input sources might work
+//! as well.
+//!
+//!
+//! ## TL;DR
+//!
+//! Use [`BeatDetector`].
 //!
 //! ## Audio Source
 //!
-//! All it needs to fulfill its work are audio samples in value range
-//! `[-1.0..=1.0]` and the sampling rate. Audio samples are expected to be in
-//! mono channel format.
+//! The library operates on `i16` mono-channel samples. There are public helpers
+//! that might assist you preparing the audio material for the crate:
+//!
+//! - [`util::f32_sample_to_i16`]
+//! - [`util::stereo_to_mono`]
 //!
 //! ## Example
+//!
 //! ```rust
 //! use beat_detector::BeatDetector;
-//! let mono_samples = [0.0, 0.5, -0.8, 0.7];
+//! let mono_samples = [0, 500, -800, 700 /*, ... */];
 //! let mut detector = BeatDetector::new(44100.0, false);
 //!
 //! let is_beat = detector.update_and_detect_beat(
@@ -45,31 +57,34 @@ SOFTWARE.
 //! ## Detection and Usage
 //!
 //! The beat detector is supposed to be continuously invoked with the latest
-//! audio samples from the audio source in time frames that must be less than
-//! the amount of buffered audio history. As soon as a beat is found in the
-//! internally buffered audio history, this is reported, and the same beat won't
-//! be reported multiple times.
+//! audio samples. On each invocation, it checks if the internal audio buffer
+//! contains a beat. The same beat won't be reported multiple times.
 //!
-//! The audio source must have a certain amount of power. Very low peaks are
-//! considered as noise and are not taken into account.
+//! The detector should be regularly fed with samples that are only
+//! a fraction of the internal buffer, For live analysis, ~20ms per invocation
+//! are fine. For post analysis, this property is not too important.
 //!
-//! ### Strategy
+//! However, the new audio samples should never be more than what the internal
+//! buffer can hold, otherwise you might lose beats.
 //!
-//! The beat detection strategy is not based on state-of-the-art scientific
-//! research but on a best-effort and common sense.
+//! ### Audio Source
+//!
+//! The audio source must have a certain amount of power. Very low values are
+//! considered as noise and are not taken into account. But you need also to
+//! prevent clipping! Ideally, you check your audio source with the "Record"
+//! feature of Audacity or a similar tool visually, so that you can limit
+//! potential sources of error.
+//!
+//! ## Detection Strategy
+//!
+//! The beat detection strategy is **not** based on state-of-the-art scientific
+//! research, but on a best-effort approach and common sense.
 //!
 //! ## Technical Information
 //!
-//! This library doesn't need any allocations or buffering of data in
-//! `heapless`-like data structures. Instead, beat-detector uses a smart
-//! chaining of multiple iterators in different abstraction levels to find
-//! beats:
-//! ```raw
-//! - Beat Detector     --uses-->
-//! - Envelope Iterator --uses-->
-//! - MaxMin Iterator   --uses-->
-//! - Root Iterator
-//! ```
+//! beat-detector uses a smart chaining of iterators in different abstraction
+//! levels to minimize buffering. In that process, it tries to never iterate
+//! data multiple times, if not necessary, to keep the latency low.
 
 #![no_std]
 #![deny(

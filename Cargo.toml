@@ -1,8 +1,9 @@
 [package]
 name = "beat-detector"
 description = """
-beat-detector is a `no_std`-compatible and alloc-free library written in Rust
-for detecting beats in audio. It can be used for both post- and live detection.
+beat-detector detects beats in live audio, but can also be used for post
+analysis of audio data. It is a library written in Rust that is
+`no_std`-compatible and doesn't need `alloc`.
 """
 version = "0.2.0"
 authors = ["Philipp Schuster <phip1611@gmail.com>"]
