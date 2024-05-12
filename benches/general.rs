@@ -42,7 +42,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     samples_f32
                         .iter()
                         .copied()
-                        .map(|s| f32_sample_to_i16(black_box(s)))
+                        .map(|s| f32_sample_to_i16(black_box(s)).unwrap())
                         .collect::<Vec<_>>(),
                 );
             })

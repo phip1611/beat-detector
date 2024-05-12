@@ -10,10 +10,18 @@ pub fn i16_sample_to_f32(mut val: i16) -> f32 {
     val as f32 / i16::MAX as f32
 }
 
+/// The sample is out of range `-1.0..1.0`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct OutOfRangeError(f32);
+
 /// Transforms an audio sample of type `f32` in range `-1.0..1.0` to  a `i16` in
 /// range `-i16::MAX..=i16::MAX`.
-pub fn f32_sample_to_i16(val: f32) -> i16 {
-    (val * i16::MAX as f32) as i16
+pub fn f32_sample_to_i16(val: f32) -> Result<i16, OutOfRangeError> {
+    if val.is_finite() && val.abs() <= 1.0 {
+        Ok((val * i16::MAX as f32) as i16)
+    } else {
+        Err(OutOfRangeError(val))
+    }
 }
 
 /// Transforms two stereo samples (that reflect the same point in time on
@@ -45,10 +53,15 @@ mod tests {
 
     #[test]
     fn test_f32_sample_to_i16() {
-        check!(f32_sample_to_i16(0.0) == 0);
-        check!(f32_sample_to_i16(-0.5) == -i16::MAX / 2);
-        check!(f32_sample_to_i16(0.5) == i16::MAX / 2);
-        check!(f32_sample_to_i16(-1.0) == -i16::MAX);
-        check!(f32_sample_to_i16(1.0) == i16::MAX);
+        check!(f32_sample_to_i16(0.0) == Ok(0));
+        check!(f32_sample_to_i16(-0.5) == Ok(-i16::MAX / 2));
+        check!(f32_sample_to_i16(0.5) == Ok(i16::MAX / 2));
+        check!(f32_sample_to_i16(-1.0) == Ok(-i16::MAX));
+        check!(f32_sample_to_i16(1.0) == Ok(i16::MAX));
+        check!(f32_sample_to_i16(1.1) == Err(OutOfRangeError(1.1)));
+        check!(matches!(
+            f32_sample_to_i16(f32::NAN),
+            Err(OutOfRangeError(_))
+        ));
     }
 }
