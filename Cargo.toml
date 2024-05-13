@@ -55,7 +55,6 @@ required-features = ["recording"]
 # +++ NOSTD DEPENDENCIES +++
 
 biquad = "0.4" # lowpass filter
-libm = "0.2"# floating point operations
 log = { version = "0.4", default-features = false }
 ringbuffer = "0.15.0"
 
