@@ -80,9 +80,10 @@ impl Ord for SampleInfo {
 }
 
 /// Accessor over the captured audio history that helps to identify the
-/// timestamp of each sample. Users are supposed to add new data in chunks that
-/// are less than the buffer size, to slowly fade out old data from the
-/// underlying ringbuffer.
+/// timestamp of each sample.
+///
+/// Users are supposed to add new data in chunks that are less than the buffer
+/// size, to slowly fade out old data from the underlying ringbuffer.
 #[derive(Debug)]
 pub struct AudioHistory {
     audio_buffer: ConstGenericRingBuffer<i16, DEFAULT_BUFFER_SIZE>,

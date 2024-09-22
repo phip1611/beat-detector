@@ -50,7 +50,7 @@ impl<'a> MaxMinIterator<'a> {
         let index = RootIterator::new(buffer, Some(index))
             .next()
             .map(|info| info.index)
-            .unwrap_or(buffer.data().len() - 1);
+            .unwrap_or_else(|| buffer.data().len() - 1);
         Self { buffer, index }
     }
 }
