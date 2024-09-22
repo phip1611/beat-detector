@@ -193,7 +193,7 @@ mod tests {
     #[allow(non_snake_case)]
     fn detect__static__no_lowpass__holiday_single_beat() {
         let (samples, header) = test_utils::samples::holiday_single_beat();
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, false);
         assert_eq!(
             detector.update_and_detect_beat(samples.iter().copied()),
             Some(EnvelopeInfo {
@@ -230,7 +230,7 @@ mod tests {
     #[allow(non_snake_case)]
     fn detect__static__lowpass__holiday_single_beat() {
         let (samples, header) = test_utils::samples::holiday_single_beat();
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, true);
         assert_eq!(
             detector
                 .update_and_detect_beat(samples.iter().copied())
@@ -265,13 +265,13 @@ mod tests {
     fn detect__dynamic__no_lowpass__holiday_single_beat() {
         let (samples, header) = test_utils::samples::holiday_single_beat();
 
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(256, &samples, &mut detector),
             &[829]
         );
 
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
             &[829]
@@ -283,7 +283,7 @@ mod tests {
     fn detect__dynamic__no_lowpass__sample1_double_beat() {
         let (samples, header) = test_utils::samples::sample1_double_beat();
 
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
             &[1309, 8637]
@@ -295,7 +295,7 @@ mod tests {
     fn detect__dynamic__lowpass__sample1_long() {
         let (samples, header) = test_utils::samples::sample1_long();
 
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, true);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
             &[12939, 93789, 101457, 189595, 270785, 278473]
@@ -307,7 +307,7 @@ mod tests {
     fn detect__dynamic__no_lowpass__holiday_long() {
         let (samples, header) = test_utils::samples::holiday_long();
 
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, false);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
             &[29077, 31225, 47053, 65811, 83773, 101995, 120137, 138131]
@@ -319,7 +319,7 @@ mod tests {
     fn detect__dynamic__lowpass__holiday_long() {
         let (samples, header) = test_utils::samples::holiday_long();
 
-        let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
+        let mut detector = BeatDetector::new(header.sample_rate as f32, true);
         assert_eq!(
             simulate_dynamic_audio_source(2048, &samples, &mut detector),
             &[31335, 47163, 65921, 84223, 102105, 120247, 138559]

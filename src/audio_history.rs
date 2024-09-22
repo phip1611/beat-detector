@@ -320,7 +320,7 @@ mod tests {
     fn audio_history_on_real_data() {
         let (samples, header) = crate::test_utils::samples::sample1_long();
 
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         assert_eq!(

@@ -148,8 +148,8 @@ mod tests {
     use crate::test_utils;
     use std::vec::Vec;
 
-    fn _print_sample_stats((samples, header): (Vec<i16>, wav::Header)) {
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+    fn _print_sample_stats((samples, header): (Vec<i16>, hound::WavSpec)) {
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let all_peaks = MaxMinIterator::new(&history, None).collect::<Vec<_>>();
