@@ -1,14 +1,18 @@
 { pkgs ? import <nixpkgs> { } }:
-pkgs.mkShell rec {
-  packages = with pkgs; [
-    # Base deps
-    alsa-lib
-    pkg-config
 
+let
+  libDeps = with pkgs; [
     # gui examples (minifb)
     libxkbcommon
     xorg.libXcursor
     xorg.libX11
+  ];
+in
+pkgs.mkShell {
+  packages = with pkgs; [
+    # Base deps
+    alsa-lib
+    pkg-config
 
     # benchmarks
     gnuplot
@@ -16,5 +20,7 @@ pkgs.mkShell rec {
     # Development
     nixpkgs-fmt
     rustup
-  ];
+  ] ++ libDeps;
+
+  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath libDeps}";
 }
