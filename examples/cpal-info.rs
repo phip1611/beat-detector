@@ -4,7 +4,7 @@ use cpal::traits::DeviceTrait;
 mod example_utils;
 
 /// Minimal example to explore the structure of the audio input samples we get
-/// from cpal. This example does nothing with the beat detection library.
+/// from cpal. This binary does nothing with the beat detection library.
 fn main() {
     let input_device = example_utils::select_audio_device();
     let supported_configs = input_device
