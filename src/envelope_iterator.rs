@@ -336,7 +336,7 @@ mod tests {
         // sample1: single beat
         {
             let (samples, header) = test_utils::samples::sample1_single_beat();
-            let mut history = AudioHistory::new(header.sampling_rate as f32);
+            let mut history = AudioHistory::new(header.sample_rate as f32);
             history.update(samples.iter().copied());
 
             // Taken from waveform in Audacity.
@@ -349,7 +349,7 @@ mod tests {
         // sample1: double beat
         {
             let (samples, header) = test_utils::samples::sample1_double_beat();
-            let mut history = AudioHistory::new(header.sampling_rate as f32);
+            let mut history = AudioHistory::new(header.sample_rate as f32);
             history.update(samples.iter().copied());
 
             // Taken from waveform in Audacity.
@@ -372,7 +372,7 @@ mod tests {
         // good enough.
         {
             let (samples, header) = test_utils::samples::holiday_single_beat();
-            let mut history = AudioHistory::new(header.sampling_rate as f32);
+            let mut history = AudioHistory::new(header.sample_rate as f32);
             history.update(samples.iter().copied());
 
             // Taken from waveform in Audacity.
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn find_envelopes_sample1_single_beat() {
         let (samples, header) = test_utils::samples::sample1_single_beat();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let envelopes = EnvelopeIterator::new(&history, None)
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn find_envelopes_sample1_double_beat() {
         let (samples, header) = test_utils::samples::sample1_double_beat();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let envelopes = EnvelopeIterator::new(&history, None)
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn find_envelopes_holiday_single_beat() {
         let (samples, header) = test_utils::samples::holiday_single_beat();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let envelopes = EnvelopeIterator::new(&history, None)

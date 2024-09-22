@@ -23,6 +23,4 @@ SOFTWARE.
 */
 //! All modules that require `std` functionality.
 
-use std::prelude::rust_2021::*;
-
 pub mod recording;

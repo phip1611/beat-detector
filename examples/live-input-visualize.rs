@@ -38,8 +38,7 @@ fn main() {
         panic!("{}", e);
     });
 
-    // Limit to max ~60 fps update rate
-    window.limit_update_rate(Some(std::time::Duration::from_secs_f32(1.0 / 60.0)));
+    window.set_target_fps(60);
 
     let handle = {
         let rgb_buffer = rgb_buffer.clone();

@@ -7,7 +7,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     // to be done.
     let slice_of_interest = &samples[28000..28000 + 4096];
 
-    let mut detector = BeatDetector::new(header.sampling_rate as f32, true);
+    let mut detector = BeatDetector::new(header.sample_rate as f32, true);
     c.bench_function(
         "simulate beat detection (with lowpass) with 4096 samples per invocation",
         |b| {
@@ -21,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         },
     );
 
-    let mut detector = BeatDetector::new(header.sampling_rate as f32, false);
+    let mut detector = BeatDetector::new(header.sample_rate as f32, false);
     c.bench_function(
         "simulate beat detection (no lowpass) with 4096 samples per invocation",
         |b| {
@@ -44,37 +44,30 @@ mod samples {
 
     /// Returns the mono samples of the holiday sample (long version)
     /// together with the sampling rate.
-    pub fn holiday_long() -> (Vec<i16>, wav::Header) {
+    pub fn holiday_long() -> (Vec<i16>, hound::WavSpec) {
         read_wav_to_mono("res/holiday_lowpassed--long.wav")
     }
 }
 
 /// Copy and paste from `test_utils.rs`.
 mod helpers {
-    use beat_detector::util::{f32_sample_to_i16, stereo_to_mono};
+    use beat_detector::util::stereo_to_mono;
     use itertools::Itertools;
-    use std::fs::File;
     use std::path::Path;
-    use wav::BitDepth;
 
-    pub fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<i16>, wav::Header) {
-        let mut file = File::open(file).unwrap();
-        let (header, data) = wav::read(&mut file).unwrap();
+    pub fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<i16>, hound::WavSpec) {
+        let mut reader = hound::WavReader::open(file).unwrap();
+        let header = reader.spec();
 
-        // owning vector with original data in f32 format
-        let data = match data {
-            BitDepth::Sixteen(samples) => samples,
-            BitDepth::ThirtyTwoFloat(samples) => samples
-                .into_iter()
-                .map(f32_sample_to_i16)
-                .map(Result::unwrap)
-                .collect::<Vec<_>>(),
-            _ => todo!("{data:?} not supported yet"),
-        };
+        // owning vector with original data in i16 format
+        let data = reader
+            .samples::<i16>()
+            .map(|s| s.unwrap())
+            .collect::<Vec<_>>();
 
-        if header.channel_count == 1 {
+        if header.channels == 1 {
             (data, header)
-        } else if header.channel_count == 2 {
+        } else if header.channels == 2 {
             let data = data
                 .into_iter()
                 .chunks(2)

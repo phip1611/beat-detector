@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn find_roots_in_holiday_excerpt() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let iter = RootIterator::new(&history, None);
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn find_roots_in_holiday_excerpt_but_begin_at_specific_index() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let iter = RootIterator::new(&history, Some(929 /* index taken from test above */ + 1));

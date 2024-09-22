@@ -4,11 +4,13 @@
 /// Transforms an audio sample in range `i16::MIN..=i16::MAX` to a `f32` in
 /// range `-1.0..1.0`.
 #[inline]
-pub fn i16_sample_to_f32(mut val: i16) -> f32 {
+pub fn i16_sample_to_f32(val: i16) -> f32 {
+    // If to prevent division result >1.0.
     if val == i16::MIN {
-        val += 1;
+        -1.0
+    } else {
+        val as f32 / i16::MAX as f32
     }
-    val as f32 / i16::MAX as f32
 }
 
 /// The sample is out of range `-1.0..1.0`.
@@ -19,7 +21,7 @@ pub struct OutOfRangeError(f32);
 /// range `-i16::MAX..=i16::MAX`.
 #[inline]
 pub fn f32_sample_to_i16(val: f32) -> Result<i16, OutOfRangeError> {
-    if val.is_finite() && val.abs() <= 1.0 {
+    if val.is_finite() && libm::fabsf(val) <= 1.0 {
         Ok((val * i16::MAX as f32) as i16)
     } else {
         Err(OutOfRangeError(val))

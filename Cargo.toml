@@ -44,35 +44,35 @@ name = "general"
 harness = false
 
 [[example]]
-name = "minimal-live-input"
+name = "live-input-minimal"
 required-features = ["recording"]
 
 [[example]]
-name = "minimal-live-input-gui"
+name = "live-input-visualize"
 required-features = ["recording"]
 
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
-
-biquad = "0.4" # lowpass filter
-libm = "0.2"# floating point operations
+biquad = { version = "0.4", default-features = false } # lowpass filter
+libm = { version = "0.2.8", default-features = false }
 log = { version = "0.4", default-features = false }
-ringbuffer = "0.15.0"
+ringbuffer = { version = "0.15.0", default-features = false }
 
 # +++ STD DEPENDENCIES +++
-cpal = { version = "0.15", optional = true }
+cpal = { version = "0.15", default-features = false, features = [], optional = true }
 
 
 [dev-dependencies]
 assert2 = "0.3.14"
 ctrlc = { version = "3.4", features = ["termination"] }
 criterion = { version = "0.5", features = [] }
-float-cmp = "0.9.0"
+float-cmp = "0.10.0"
+hound = "3.5.1"
 itertools = "0.13.0"
 simple_logger = "5.0"
-minifb = "0.25.0"
+minifb = "0.27.0"
 rand = "0.8.5"
-wav = "1.0"
+
 
 [profile.dev]
 # otherwise many code is too slow

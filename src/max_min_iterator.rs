@@ -50,7 +50,7 @@ impl<'a> MaxMinIterator<'a> {
         let index = RootIterator::new(buffer, Some(index))
             .next()
             .map(|info| info.index)
-            .unwrap_or(buffer.data().len() - 1);
+            .unwrap_or_else(|| buffer.data().len() - 1);
         Self { buffer, index }
     }
 }
@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn find_maxmin_in_holiday_excerpt() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let mut history = AudioHistory::new(header.sampling_rate as f32);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let iter = MaxMinIterator::new(&history, None);

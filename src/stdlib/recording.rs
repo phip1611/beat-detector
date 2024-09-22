@@ -24,12 +24,12 @@ SOFTWARE.
 
 //! Module for audio recording from an audio input device.
 
-use super::*;
 use crate::{BeatDetector, BeatInfo};
 use core::fmt::{Display, Formatter};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{BufferSize, StreamConfig};
 use std::error::Error;
+use std::string::ToString;
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
