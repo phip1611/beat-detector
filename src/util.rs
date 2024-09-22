@@ -19,7 +19,7 @@ pub struct OutOfRangeError(f32);
 /// range `-i16::MAX..=i16::MAX`.
 #[inline]
 pub fn f32_sample_to_i16(val: f32) -> Result<i16, OutOfRangeError> {
-    if val.is_finite() && val.abs() <= 1.0 {
+    if val.is_finite() && libm::fabsf(val) <= 1.0 {
         Ok((val * i16::MAX as f32) as i16)
     } else {
         Err(OutOfRangeError(val))

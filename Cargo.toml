@@ -53,13 +53,13 @@ required-features = ["recording"]
 
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
-
-biquad = "0.4" # lowpass filter
+biquad = { version = "0.4", default-features = false } # lowpass filter
+libm = { version = "0.2.8", default-features = false }
 log = { version = "0.4", default-features = false }
-ringbuffer = "0.15.0"
+ringbuffer = { version = "0.15.0", default-features = false }
 
 # +++ STD DEPENDENCIES +++
-cpal = { version = "0.15", optional = true }
+cpal = { version = "0.15", default-features = false, features = [], optional = true }
 
 
 [dev-dependencies]
