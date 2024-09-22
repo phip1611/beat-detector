@@ -4,11 +4,13 @@
 /// Transforms an audio sample in range `i16::MIN..=i16::MAX` to a `f32` in
 /// range `-1.0..1.0`.
 #[inline]
-pub fn i16_sample_to_f32(mut val: i16) -> f32 {
+pub fn i16_sample_to_f32(val: i16) -> f32 {
+    // If to prevent division result >1.0.
     if val == i16::MIN {
-        val += 1;
+        -1.0
+    } else {
+        val as f32 / i16::MAX as f32
     }
-    val as f32 / i16::MAX as f32
 }
 
 /// The sample is out of range `-1.0..1.0`.
