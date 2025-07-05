@@ -21,37 +21,52 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-use crate::envelope_iterator::ENVELOPE_MIN_DURATION_MS;
+
+//! Helpers for audio history bookkeeping.
+//!
+//! We need to get new audio samples as we go but keep knowledge for old ones.
+//! A short period of history is needed to properly
+//!
+//! See [`AudioHistory`] and [`SampleInfo`].
+
+use crate::audio_preprocessing::downsampling::DownsamplingMetrics;
+use crate::audio_preprocessing::f32::F32Frequency;
 use core::cmp::Ordering;
 use core::time::Duration;
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
+use crate::audio_preprocessing::lowpass_filter::LowpassFilter;
 
-const SAFETY_BUFFER_FACTOR: f64 = 3.0;
-/// Length in ms of the captured audio history used for analysis.
-pub(crate) const DEFAULT_AUDIO_HISTORY_WINDOW_MS: usize =
-    (ENVELOPE_MIN_DURATION_MS as f64 * SAFETY_BUFFER_FACTOR) as usize;
+/// The default buffer size for the audio history with sufficient safety
+/// capacity.
+///
+/// As this crate stores the audio data in mono channel i16 format and performs
+/// downsampling, we will have effective sampling rates of 500 Hz and below.
+/// To keep samples of the last [`MIN_WINDOW`], 1024 is sufficient.
+///
+/// You can run `cargo run --bin downsample-bufsize-helper` to get insights on what we
+/// need here.
+#[cfg(not(test))]
+const DEFAULT_BUFFER_SIZE: usize = 1024;
+#[cfg(test)] // in tests, I often don't downsample things => more memory needed
+const DEFAULT_BUFFER_SIZE: usize = 44100;
 
-/// Based on the de-facto default sampling rate of 44100 Hz / 44.1 kHz.
-const DEFAULT_SAMPLES_PER_SECOND: usize = 44100;
-const MS_PER_SECOND: usize = 1000;
-
-/// Default buffer size for [`AudioHistory`]. The size is a trade-off between
-/// memory efficiency and effectiveness in detecting envelops properly.
-pub const DEFAULT_BUFFER_SIZE: usize =
-    (DEFAULT_AUDIO_HISTORY_WINDOW_MS * DEFAULT_SAMPLES_PER_SECOND) / MS_PER_SECOND;
+/// Minimum window size (duration) for the audio buffer to do proper beat
+/// detection.
+pub const MIN_WINDOW: Duration = Duration::from_millis(300);
 
 /// Sample info with time context.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct SampleInfo {
-    /// The value of the sample.
-    pub value: i16,
-    /// Absolute value of `value`.
-    pub value_abs: i16,
+    /// The value (amplitude) of the sample.
+    pub amplitude: i16,
     /// The current index in [`AudioHistory`].
     pub index: usize,
     /// The total index since the beginning of audio history.
     pub total_index: usize,
-    /// Relative timestamp since beginning of audio history.
+    /// The total index since the beginning of audio history but adjusted
+    /// to the original audio, i.e., without the downsampling simplification.
+    pub total_index_original: usize,
+    /// Relative timestamp since the beginning of audio history.
     pub timestamp: Duration,
     /// The time the sample is behind the latest data.
     pub duration_behind: Duration,
@@ -73,9 +88,7 @@ impl Eq for SampleInfo {}
 
 impl Ord for SampleInfo {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.total_index
-            .partial_cmp(&other.total_index)
-            .expect("Should be comparable")
+        self.total_index.cmp(&other.total_index)
     }
 }
 
@@ -86,31 +99,61 @@ impl Ord for SampleInfo {
 /// size, to slowly fade out old data from the underlying ringbuffer.
 #[derive(Debug)]
 pub struct AudioHistory {
+    // read-only properties
+    
+    /// Time per sample regarding the effective sample rate.
+    time_per_sample: f32,
+    /// If a lowpass filter is set, this specifies the group delay.
+    /// This influences the total index in the original audio source.
+    filter_group_delay: Option<usize>,
+    // If downsampling was used, the metrics to adjust some things.
+    downsampling_metrics: Option<DownsamplingMetrics>,
+    
+    // mutable properties
     audio_buffer: ConstGenericRingBuffer<i16, DEFAULT_BUFFER_SIZE>,
     total_consumed_samples: usize,
-    time_per_sample: f32,
 }
 
 impl AudioHistory {
-    pub fn new(sampling_frequency: f32) -> Self {
+    /// Creates a new audio history buffer.
+    ///
+    /// The sample rate has to be the effective rate with that the audio
+    /// buffer is fed, such as the effective sample rate after downsampling.
+    // todo constructor is weird
+    pub fn new(
+        // Original sample rate
+        original_sample_rate_hz: F32Frequency,
+        // Metrics with possibly now effective sample rate.
+        downsampling_metrics: Option<DownsamplingMetrics>,
+        // Group delay of the lowpass filter, if any is used.
+        filter_group_delay: Option<usize>
+    ) -> Self {
         let audio_buffer = ConstGenericRingBuffer::new();
-        assert!(sampling_frequency.is_normal() && sampling_frequency.is_sign_positive());
+        
+        // The effective sample rate as seen by the audio history.
+        let sample_rate_hz = downsampling_metrics
+            .as_ref()
+            .map(|metrics| metrics.effective_sample_rate_hz())
+            .unwrap_or(original_sample_rate_hz);
+        
         Self {
             audio_buffer,
-            time_per_sample: 1.0 / sampling_frequency,
+            time_per_sample: 1.0 / sample_rate_hz.raw(),
             total_consumed_samples: 0,
+            downsampling_metrics,
+            filter_group_delay
         }
     }
 
-    /// Update the audio history with fresh samples. The audio samples are
+    /// Updates the audio history with fresh samples. The audio samples are
     /// expected to be in mono channel format.
     #[inline]
-    pub fn update<I: Iterator<Item = i16>>(&mut self, mono_samples_iter: I) {
+    pub fn update(&mut self, mono_samples_iter: impl Iterator<Item = i16>) {
         let mut len = 0;
-        mono_samples_iter.for_each(|sample| {
+        for sample in mono_samples_iter {
             self.audio_buffer.push(sample);
-            len += 1;
-        });
+            self.total_consumed_samples += 1;
+        }
 
         self.total_consumed_samples += len;
 
@@ -150,12 +193,22 @@ impl AudioHistory {
 
         let timestamp = self.timestamp_of_index(index);
         let value = self.data()[index];
+        let total_index = self.index_to_sample_number(index);
+        let total_index_original = total_index
+            * self
+                .downsampling_metrics
+                .as_ref()
+                .map(|metrics| metrics.factor())
+                .unwrap_or(1);
+        // Shift back in time according to the group delay.
+        let total_index_original = total_index_original.saturating_sub(self.filter_group_delay.unwrap_or(0));
+        
         SampleInfo {
             index,
             timestamp,
-            value,
-            value_abs: value.abs(),
-            total_index: self.index_to_sample_number(index),
+            amplitude: value,
+            total_index,
+            total_index_original,
             duration_behind: self.timestamp_of_index(self.data().len() - 1) - timestamp,
         }
     }
@@ -181,6 +234,11 @@ impl AudioHistory {
                 None
             }
         }
+    }
+    
+    /// Returns the effective sample rate.
+    pub fn sample_rate(&self) -> F32Frequency {
+        (1.0 / self.time_per_sample).round().try_into().unwrap()
     }
 
     /// Returns the sample number that an index belongs to. Note that a higher
@@ -224,29 +282,40 @@ impl AudioHistory {
         let sample_number = self.index_to_sample_number(index);
         self.timestamp_of_sample(sample_number)
     }
-
-    /*/// Getter for the sampling frequency.
-    pub fn sampling_frequency(&self) -> f32 {
-        1.0 / self.time_per_sample
-    }*/
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio_preprocessing::ValidInputFrequencies;
     use std::iter;
 
+    /// Checks for a sane buffer length with expected effective sample rates of
+    /// `<= 500 Hz`.
+    ///
+    /// You can run `cargo run --bin downsample-bufsize-helper` to get insights on what
+    /// we need here.
     #[test]
     fn buffer_len_sane() {
-        let sampling_rate = 1.0 / DEFAULT_SAMPLES_PER_SECOND as f32;
-        let duration = Duration::from_secs_f32(sampling_rate * DEFAULT_BUFFER_SIZE as f32);
-        assert!(duration.as_millis() > 10);
-        assert!(duration.as_millis() <= 1000);
+        const SAMPLE_RATE_HZ: f32 = 500.0;
+
+        let sample_rate = 1.0 / SAMPLE_RATE_HZ;
+        let duration = Duration::from_secs_f32(sample_rate * DEFAULT_BUFFER_SIZE as f32);
+        assert!(duration >= MIN_WINDOW);
+        assert!(duration.as_millis() <= 5000);
+    }
+
+    #[test]
+    fn buffer_memory_footprint_is_sane() {
+        // note that for detection, the working set might be much smaller,
+        // as the analysis algorithm might only look at the freshest data.
+        assert!(size_of::<AudioHistory>() <= 4096);
     }
 
     #[test]
     fn audio_duration_is_updated_properly() {
-        let mut hist = AudioHistory::new(2.0);
+        let sample_rate = 2.0.try_into().unwrap();
+        let mut hist = AudioHistory::new(sample_rate, None, None);
         assert_eq!(hist.total_consumed_samples, 0);
 
         hist.update(iter::once(0));
@@ -260,7 +329,8 @@ mod tests {
 
     #[test]
     fn index_to_sample_number_works_across_ringbuffer_overflow() {
-        let mut hist = AudioHistory::new(2.0);
+        let sample_rate = 2.0.try_into().unwrap();
+        let mut hist = AudioHistory::new(sample_rate, None, None);
 
         let test_data = [0; DEFAULT_BUFFER_SIZE + 10];
 
@@ -294,7 +364,8 @@ mod tests {
     #[test]
     // transitively tests timestamp_of_sample()
     fn timestamp_of_index_properly_calculated() {
-        let mut hist = AudioHistory::new(2.0);
+        let sample_rate = 2.0.try_into().unwrap();
+        let mut hist = AudioHistory::new(sample_rate, None, None);
 
         let test_data = [0; DEFAULT_BUFFER_SIZE + 10];
 
@@ -321,7 +392,8 @@ mod tests {
     fn audio_history_on_real_data() {
         let (samples, header) = crate::test_utils::samples::sample1_long();
 
-        let mut history = AudioHistory::new(header.sample_rate as f32);
+        let sample_rate = (header.sample_rate as f32).try_into().unwrap();
+        let mut history = AudioHistory::new(sample_rate, None, None);
         history.update(samples.iter().copied());
 
         assert_eq!(
@@ -338,7 +410,8 @@ mod tests {
 
     #[test]
     fn sample_info() {
-        let mut hist = AudioHistory::new(1.0);
+        let sample_rate = 1.0.try_into().unwrap();
+        let mut hist = AudioHistory::new(sample_rate, None, None);
 
         hist.update(iter::once(0));
         assert_eq!(
@@ -410,7 +483,8 @@ mod tests {
 
     #[test]
     fn total_index_to_index_works() {
-        let mut history = AudioHistory::new(1.0);
+        let sample_rate = 1.0.try_into().unwrap();
+        let mut history = AudioHistory::new(sample_rate, None, None);
         for i in 0..history.data().capacity() {
             assert_eq!(history.total_index_to_index(i), None);
             history.update(iter::once(0));
@@ -425,6 +499,47 @@ mod tests {
         assert_eq!(
             history.total_index_to_index(history.total_consumed_samples),
             Some(history.data().capacity())
+        );
+    }
+
+    #[test]
+    fn total_index_original_works() {
+        let input = ValidInputFrequencies::new(100.0, 10.0).unwrap();
+        let metrics = DownsamplingMetrics::new(input);
+        assert_eq!(metrics.factor(), 2);
+        assert_eq!(metrics.effective_sample_rate_hz().raw(), 50.0);
+
+        let mut history = AudioHistory::new(input.sample_rate_hz(), Some(metrics), None);
+
+        const N: usize = 10;
+        history.update([0; N].into_iter());
+
+        assert_eq!(history.index_to_sample_info(0).total_index_original, 0);
+        assert_eq!(history.index_to_sample_info(1).total_index_original, 2);
+        assert_eq!(history.index_to_sample_info(9).total_index_original, 18);
+
+        // entirely fill buffer
+        for _ in 0..history.audio_buffer.capacity() {
+            history.update([0].into_iter());
+        }
+        assert_eq!(history.total_consumed_samples, DEFAULT_BUFFER_SIZE + N);
+
+        let index = history.audio_buffer.capacity() - 1;
+        let expected_index = DEFAULT_BUFFER_SIZE + N - 1;
+        assert_eq!(
+            history.index_to_sample_info(index).total_index,
+            expected_index
+        );
+        assert_eq!(
+            history.index_to_sample_info(index).total_index_original,
+            expected_index * 2
+        );
+        
+        // now test with group delay
+        history.filter_group_delay.replace(5);
+        assert_eq!(
+            history.index_to_sample_info(index).total_index_original,
+            expected_index * 2 - 5
         );
     }
 }

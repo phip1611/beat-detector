@@ -21,8 +21,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-use crate::{AudioHistory, SampleInfo};
 use ringbuffer::RingBuffer;
+use crate::audio_preprocessing::audio_history::{AudioHistory, SampleInfo};
 
 const IGNORE_NOISE_THRESHOLD: i16 = (i16::MAX as f32 * 0.05) as i16;
 
@@ -53,6 +53,8 @@ impl From<i16 /* sample */> for State {
 /// must be created.
 #[derive(Debug, Clone)]
 pub struct RootIterator<'a> {
+    // This index is updated as we go to reflect the state, i.e., to skip the
+    // already processed elements on the next iteration.
     index: usize,
     buffer: &'a AudioHistory,
 }
@@ -75,18 +77,17 @@ impl Iterator for RootIterator<'_> {
             return None;
         }
 
+        // Iter: seeked forward to skip all noise
         let mut iter = self
             .buffer
             .data()
             .iter()
             .enumerate()
             .skip(self.index)
-            // Given the very high sampling rate, we can sacrifice a negligible
-            // impact on precision for better performance / fewer iterations.
-            .step_by(10)
             .skip_while(|(_, &sample)| sample.abs() < IGNORE_NOISE_THRESHOLD);
 
-        let initial_state = State::from(iter.next().map(|(_, &sample)| sample)?);
+        let next_element = iter.next().map(|(_, &sample)| sample)?;
+        let initial_state = State::from(next_element);
 
         let next_root = iter
             // Skip while we didn't cross the x axis.
@@ -107,28 +108,31 @@ impl Iterator for RootIterator<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils;
-    use crate::util::i16_sample_to_f32;
     use std::vec::Vec;
+    use crate::audio_preprocessing::conversion::i16_sample_to_f32;
+    use crate::test_utils;
 
     #[test]
     fn find_roots_in_holiday_excerpt() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let mut history = AudioHistory::new(header.sample_rate as f32);
+        let sample_rate = header.sample_rate as f32;
+        let sample_rate = sample_rate.try_into().unwrap();
+
+        let mut history = AudioHistory::new(sample_rate, None, None);
         history.update(samples.iter().copied());
 
         let iter = RootIterator::new(&history, None);
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value))).collect::<Vec<_>>(),
+            iter.map(|info| (info.total_index_original, i16_sample_to_f32(info.amplitude).raw())).collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (369, 0.030854214),
-                (689, -0.013336589),
-                (929, 0.013275552),
-                (1129, -0.030640583),
-                (1449, 0.033509325)
+                (362, -0.0031434065),
+                (682, 0.0006408887),
+                (923, -0.0020752586),
+                (1120, 0.0023499252),
+                (1441, -0.00027466659)
             ]
         );
     }
@@ -136,19 +140,35 @@ mod tests {
     #[test]
     fn find_roots_in_holiday_excerpt_but_begin_at_specific_index() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let mut history = AudioHistory::new(header.sample_rate as f32);
+        let sample_rate = header.sample_rate as f32;
+        let sample_rate = sample_rate.try_into().unwrap();
+        let mut history = AudioHistory::new(sample_rate, None, None);
         history.update(samples.iter().copied());
 
-        let iter = RootIterator::new(&history, Some(929 /* index taken from test above */ + 1));
+        let iter = RootIterator::new(&history, Some(923 /* index taken from test above */ + 1));
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value))).collect::<Vec<_>>(),
+            iter.map(|info| (info.total_index_original, i16_sample_to_f32(info.amplitude).raw())).collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (1129, -0.030640583),
-                (1449, 0.033509325)
+                (1120, 0.0023499252),
+                (1441, -0.00027466659)
             ]
         );
+    }
+    
+    #[test]
+    fn test_with_downsampler() {/*
+        let (samples, header) = test_utils::samples::holiday_excerpt();
+        let sample_rate = header.sample_rate as f32;
+        let frequencies = ValidInputFrequencies::new(sample_rate, 100.0).unwrap();
+        let metrics = DownsamplingMetrics::new(frequencies);
+        let lowpass_filter = LowpassFilter::new(frequencies);
+        
+        let samples = samples.into_iter()
+            .map(|sample| lowpass_filter.filter(sample))
+        
+        let mut history = AudioHistory::new(sample_rate, None);*/
     }
 }

@@ -22,11 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-use crate::RootIterator;
-use crate::{AudioHistory, SampleInfo};
+use super::root_iterator::RootIterator;
+use crate::audio_preprocessing::audio_history::{AudioHistory, SampleInfo};
 use core::cmp::Ordering;
 use ringbuffer::RingBuffer;
-
 // const IGNORE_NOISE_THRESHOLD: f32 = 0.05;
 
 /// Iterates the minima and maxima of the wave.
@@ -78,7 +77,6 @@ impl Iterator for MaxMinIterator<'_> {
             .enumerate()
             .skip(begin_index)
             .take(sample_count)
-            .step_by(10)
             .max_by(|(_x_index, &x_value), (_y_index, &y_value)| {
                 if x_value.abs() > y_value.abs() {
                     Ordering::Greater
@@ -98,28 +96,31 @@ impl Iterator for MaxMinIterator<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio_preprocessing::conversion::i16_sample_to_f32;
     use crate::test_utils;
-    use crate::util::i16_sample_to_f32;
     use std::vec::Vec;
 
     #[test]
     fn find_maxmin_in_holiday_excerpt() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let mut history = AudioHistory::new(header.sample_rate as f32);
+        let sample_rate = header.sample_rate as f32;
+        let sample_rate = sample_rate.try_into().unwrap();
+        let mut history = AudioHistory::new(sample_rate, None, None);
         history.update(samples.iter().copied());
 
         let iter = MaxMinIterator::new(&history, None);
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value)))
+            iter
+                .map(|info| (info.total_index_original, i16_sample_to_f32(info.amplitude).raw()))
                 .collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (539, 0.39054537),
-                (859, -0.0684225),
-                (1029, 0.24597919),
-                (1299, -0.30658895),
+                (543, 0.39106417),
+                (863, -0.06884976),
+                (1027, 0.24600971),
+                (1302, -0.3068636),
             ]
         );
     }

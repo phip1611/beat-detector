@@ -119,42 +119,33 @@ extern crate assert2;
 #[cfg(test)]
 extern crate float_cmp;
 
-mod audio_history;
-mod beat_detector;
-mod envelope_iterator;
-mod max_min_iterator;
-mod root_iterator;
+mod audio_preprocessing;
 #[cfg(feature = "std")]
-mod stdlib;
+mod audio_io;
+mod audio_analysis;
+// mod max_min_iterator;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
-pub mod util;
+// use max_min_iterator::MaxMinIterator;
 
-pub use audio_history::{AudioHistory, SampleInfo};
-pub use beat_detector::{BeatDetector, BeatInfo};
-pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
-#[cfg(feature = "std")]
-pub use stdlib::*;
-
-use max_min_iterator::MaxMinIterator;
-use root_iterator::RootIterator;
-
-#[cfg(test)]
+#[cfg(todo)]
 mod tests {
     use super::*;
-    use crate::audio_history::AudioHistory;
+    use crate::layer_analysis::audio_history::AudioHistory;
     use crate::max_min_iterator::MaxMinIterator;
     use crate::test_utils;
     use std::vec::Vec;
 
     fn _print_sample_stats((samples, header): (Vec<i16>, hound::WavSpec)) {
-        let mut history = AudioHistory::new(header.sample_rate as f32);
+        let sample_rate = header.sample_rate as f32;
+        let sample_rate = sample_rate.try_into().unwrap();
+        let mut history = AudioHistory::new(sample_rate, None);
         history.update(samples.iter().copied());
 
         let all_peaks = MaxMinIterator::new(&history, None).collect::<Vec<_>>();
 
-        let abs_peak_value_iter = all_peaks.iter().map(|info| info.value_abs);
+        let abs_peak_value_iter = all_peaks.iter().map(|info| info.amplitude.abs());
 
         let max: i16 = abs_peak_value_iter.clone().max().unwrap();
         let min: i16 = abs_peak_value_iter.clone().min().unwrap();
@@ -163,9 +154,9 @@ mod tests {
             (abs_peak_value_iter.map(|v| v as u64).sum::<u64>() / all_peaks.len() as u64) as i16;
 
         let mut all_peaks_sorted = all_peaks.clone();
-        all_peaks_sorted.sort_by(|a, b| a.value_abs.partial_cmp(&b.value_abs).unwrap());
+        all_peaks_sorted.sort_by(|a, b| a.amplitude.abs().partial_cmp(&b.amplitude.abs()).unwrap());
 
-        let median: i16 = all_peaks_sorted[all_peaks_sorted.len() / 2].value_abs;
+        let median: i16 = all_peaks_sorted[all_peaks_sorted.len() / 2].amplitude.abs();
 
         eprintln!("max abs peak     : {max:.3}");
         eprintln!("min abs peak     : {min:.3}");
@@ -177,7 +168,7 @@ mod tests {
             "peaks abs        : {:#.3?}",
             all_peaks
                 .iter()
-                .map(|info| info.value_abs)
+                .map(|info| info.amplitude.abs())
                 .collect::<Vec<_>>()
         );
         eprintln!(
@@ -185,7 +176,7 @@ mod tests {
             all_peaks
                 .iter()
                 .zip(all_peaks.iter().skip(1))
-                .map(|(current, next)| { next.value_abs / current.value_abs })
+                .map(|(current, next)| { next.amplitude.abs() / current.amplitude.abs() })
                 .collect::<Vec<_>>()
         );
     }
