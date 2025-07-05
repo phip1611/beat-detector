@@ -119,19 +119,14 @@ extern crate assert2;
 #[cfg(test)]
 extern crate float_cmp;
 
-mod layer_analysis;
+mod audio_preprocessing;
 #[cfg(feature = "std")]
-mod layer_input_io;
-mod layer_input_processing;
+mod audio_io;
+mod audio_analysis;
 // mod max_min_iterator;
 /// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
-
-#[cfg(feature = "std")]
-pub use layer_input_io::*;
-pub use layer_input_processing::{downsampling::DownsamplingMetrics, ValidInputFrequencies};
-
 // use max_min_iterator::MaxMinIterator;
 
 #[cfg(todo)]

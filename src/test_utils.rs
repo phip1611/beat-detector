@@ -22,10 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+use crate::audio_preprocessing::conversion::stereo_to_mono;
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
 use std::vec::Vec;
-use crate::layer_input_processing::conversion::stereo_to_mono;
 
 /// Reads a WAV file to mono audio. Returns the samples as mono audio.
 /// Additionally, it returns the sampling rate of the file.
@@ -83,7 +83,7 @@ pub fn target_dir_test_artifacts() -> PathBuf {
 /// individual data points.
 pub mod samples {
     use super::*;
-    use crate::layer_analysis::audio_history::MIN_WINDOW;
+    use crate::audio_preprocessing::audio_history::MIN_WINDOW;
 
     /// Returns the mono samples of the holiday sample (long version)
     /// together with the sampling rate.

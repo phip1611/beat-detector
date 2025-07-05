@@ -21,8 +21,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-use crate::layer_analysis::audio_history::{AudioHistory, SampleInfo};
 use ringbuffer::RingBuffer;
+use crate::audio_preprocessing::audio_history::{AudioHistory, SampleInfo};
 
 const IGNORE_NOISE_THRESHOLD: i16 = (i16::MAX as f32 * 0.05) as i16;
 
@@ -108,9 +108,11 @@ impl Iterator for RootIterator<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils;
     use std::vec::Vec;
-    use crate::layer_input_processing::conversion::i16_sample_to_f32;
+    use log::info;
+    use crate::audio_preprocessing::conversion::i16_sample_to_f32;
+    use crate::audio_preprocessing::lowpass_filter::LowpassFilter;
+    use crate::test_utils;
 
     #[test]
     fn find_roots_in_holiday_excerpt() {
@@ -156,5 +158,19 @@ mod tests {
                 (1441, -0.00027466659)
             ]
         );
+    }
+    
+    #[test]
+    fn test_with_downsampler() {/*
+        let (samples, header) = test_utils::samples::holiday_excerpt();
+        let sample_rate = header.sample_rate as f32;
+        let frequencies = ValidInputFrequencies::new(sample_rate, 100.0).unwrap();
+        let metrics = DownsamplingMetrics::new(frequencies);
+        let lowpass_filter = LowpassFilter::new(frequencies);
+        
+        let samples = samples.into_iter()
+            .map(|sample| lowpass_filter.filter(sample))
+        
+        let mut history = AudioHistory::new(sample_rate, None);*/
     }
 }

@@ -127,8 +127,8 @@ impl AudioHistory {
     /// Updates the audio history with fresh samples. The audio samples are
     /// expected to be in mono channel format.
     #[inline]
-    pub fn update<I: ExactSizeIterator<Item = i16>>(&mut self, mono_samples_iter: I) {
-        let len = mono_samples_iter.len();
+    pub fn update(&mut self, mono_samples_iter: impl Iterator<Item = i16> + Clone) {
+        let len = mono_samples_iter.clone().count();
         self.audio_buffer.extend(mono_samples_iter);
 
         self.total_consumed_samples += len;

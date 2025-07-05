@@ -24,8 +24,8 @@ SOFTWARE.
 
 use core::cmp::Ordering;
 use ringbuffer::RingBuffer;
-use crate::layer_analysis::audio_history::{AudioHistory, SampleInfo};
-use crate::layer_analysis::root_iterator::RootIterator;
+use super::root_iterator::RootIterator;
+use crate::audio_preprocessing::audio_history::{AudioHistory, SampleInfo};
 // const IGNORE_NOISE_THRESHOLD: f32 = 0.05;
 
 /// Iterates the minima and maxima of the wave.
@@ -99,7 +99,7 @@ mod tests {
     use super::*;
     use crate::test_utils;
     use std::vec::Vec;
-    use crate::layer_input_processing::conversion::i16_sample_to_f32;
+    use crate::audio_preprocessing::conversion::i16_sample_to_f32;
 
     #[test]
     fn find_maxmin_in_holiday_excerpt() {

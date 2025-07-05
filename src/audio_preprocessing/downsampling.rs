@@ -5,7 +5,7 @@
 //! less data.
 
 use super::f32::F32Frequency;
-use crate::layer_input_processing::ValidInputFrequencies;
+use crate::audio_preprocessing::ValidInputFrequencies;
 
 /// Bundles the downsampling metrics.
 #[derive(Debug, Clone, PartialEq)]
@@ -152,10 +152,6 @@ impl Downsampler {
     /// The sample rate must be a multiple of the cutoff frequency.
     #[must_use]
     pub fn new(metrics: DownsamplingMetrics) -> Self {
-        let effective_sample_rate_hz =
-            metrics.input.sample_rate_hz.raw() / metrics.input.cutoff_fr_hz.raw();
-        let effective_sample_rate_hz: F32Frequency = effective_sample_rate_hz.try_into().unwrap();
-
         let n_th = metrics.factor;
         Self {
             i: 0,

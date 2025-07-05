@@ -1,8 +1,8 @@
 //! Utilities for processing audio input with a lowpass filter.
 
 use super::f32::{F32Frequency, F32Sample};
-use crate::ValidInputFrequencies;
 use biquad::{Biquad, Coefficients, DirectForm2Transposed, ToHertz, Type, Q_BUTTERWORTH_F32};
+use crate::audio_preprocessing::ValidInputFrequencies;
 
 /// Helper to pass samples through a lowpass filter.
 #[derive(Debug)]
