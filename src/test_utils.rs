@@ -21,10 +21,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-use crate::util::stereo_to_mono;
+
 use itertools::Itertools;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::vec::Vec;
+use crate::layer_input_processing::conversion::stereo_to_mono;
 
 /// Reads a WAV file to mono audio. Returns the samples as mono audio.
 /// Additionally, it returns the sampling rate of the file.
@@ -59,12 +60,30 @@ fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<i16>, hound::WavSpec) {
     }
 }
 
+/// Returns the cargo target dir.
+pub fn target_dir() -> PathBuf {
+    // 1. Check if CARGO_TARGET_DIR is set
+    if let Ok(dir) = std::env::var("CARGO_TARGET_DIR") {
+        PathBuf::from(dir)
+    } else {
+        // 2. Fall back to default: go up from CARGO_MANIFEST_DIR
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir.join("target")
+    }
+}
+/// Returns a directory within the cargo target dir to store test artifacts.
+pub fn target_dir_test_artifacts() -> PathBuf {
+    let mut path = target_dir();
+    path.push("test_generated");
+    path
+}
+
 /// Accessor to various samples. One sample here refers to what a sample is in
 /// the music industry: A small excerpt of audio. "Samples" however refer to the
 /// individual data points.
 pub mod samples {
     use super::*;
-    use crate::audio_history::DEFAULT_AUDIO_HISTORY_WINDOW_MS;
+    use crate::layer_analysis::audio_history::MIN_WINDOW;
 
     /// Returns the mono samples of the holiday sample (long version)
     /// together with the sampling rate.
@@ -116,7 +135,7 @@ pub mod samples {
         let duration = to_duration_in_seconds(holiday_excerpt());
         assert_eq!(duration, 0.035804987 /* seconds */);
         assert!(
-            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            duration * 1000.0 <= MIN_WINDOW.as_millis() as f32,
             "All test code relies on that this sample fully fits into the audio window!"
         );
 
@@ -126,7 +145,7 @@ pub mod samples {
         let duration = to_duration_in_seconds(holiday_single_beat());
         assert_eq!(duration, 0.40773243 /* seconds */);
         assert!(
-            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            duration * 1000.0 <= MIN_WINDOW.as_millis() as f32,
             "All test code relies on that this sample fully fits into the audio window!"
         );
 
@@ -136,14 +155,14 @@ pub mod samples {
         let duration = to_duration_in_seconds(sample1_single_beat());
         assert_eq!(duration, 0.18380952 /* seconds */);
         assert!(
-            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            duration * 1000.0 <= MIN_WINDOW.as_millis() as f32,
             "All test code relies on that this sample fully fits into the audio window!"
         );
 
         let duration = to_duration_in_seconds(sample1_double_beat());
         assert_eq!(duration, 0.41687074 /* seconds */);
         assert!(
-            duration * 1000.0 <= DEFAULT_AUDIO_HISTORY_WINDOW_MS as f32,
+            duration * 1000.0 <= MIN_WINDOW.as_millis() as f32,
             "All test code relies on that this sample fully fits into the audio window!"
         );
     }

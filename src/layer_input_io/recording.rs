@@ -24,7 +24,6 @@ SOFTWARE.
 
 //! Module for audio recording from an audio input device.
 
-use crate::{BeatDetector, BeatInfo};
 use core::fmt::{Display, Formatter};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{BufferSize, StreamConfig};
@@ -126,10 +125,10 @@ pub fn start_detector_thread(
                 log::error!("Input error: {e:#?}");
             },
             // Timeout: worst case max blocking time
-            // Don't see too short, as otherwise, the error callback will be
+            // Don't set too short, as otherwise, the error callback will be
             // invoked frequently.
             // https://github.com/RustAudio/cpal/pull/696
-            Some(Duration::from_secs(1)),
+            Some(Duration::from_millis(300)),
         )
         .map_err(StartDetectorThreadError::FailedBuildingInputStream)?;
 
