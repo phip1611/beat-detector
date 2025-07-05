@@ -53,8 +53,8 @@ required-features = ["recording"]
 
 [dependencies]
 # +++ NOSTD DEPENDENCIES +++
-biquad = { version = "0.4", default-features = false } # lowpass filter
-libm = { version = "0.2.8", default-features = false }
+biquad = { version = "=0.4", default-features = false } # lowpass filter
+libm = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
 ringbuffer = { version = "0.15.0", default-features = false }
 
@@ -63,15 +63,15 @@ cpal = { version = "0.16", default-features = false, features = [], optional = t
 
 
 [dev-dependencies]
-assert2 = "0.3.14"
+assert2 = "0.3"
 ctrlc = { version = "3.4", features = ["termination"] }
-criterion = { version = "0.5", features = [] }
+criterion = { version = "0.6", features = [] }
 float-cmp = "0.10.0"
-hound = "3.5.1"
-itertools = "0.14.0"
+hound = "3.5"
+itertools = "0.14"
 simple_logger = "5.0"
-minifb = "0.27.0"
-rand = "0.8.5"
+minifb = "0.28"
+rand = "0.9"
 
 
 [profile.dev]
