@@ -1,4 +1,6 @@
-{ pkgs ? import <nixpkgs> { } }:
+{
+  pkgs ? import <nixpkgs> { },
+}:
 
 let
   libDeps = with pkgs; [
@@ -9,18 +11,21 @@ let
   ];
 in
 pkgs.mkShell {
-  packages = with pkgs; [
-    # Base deps
-    alsa-lib
-    pkg-config
+  packages =
+    with pkgs;
+    [
+      # Base deps
+      alsa-lib
+      pkg-config
 
-    # benchmarks
-    gnuplot
+      # benchmarks
+      gnuplot
 
-    # Development
-    nixpkgs-fmt
-    rustup
-  ] ++ libDeps;
+      # Development
+      nixfmt-rfc-style
+      rustup
+    ]
+    ++ libDeps;
 
   LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath libDeps}";
 }
