@@ -15,7 +15,7 @@ use crate::audio_preprocessing::ValidInputFrequencies;
 pub struct LowpassFilter {
     frequencies: ValidInputFrequencies,
     /// Recommended impl of biquad filter
-    filter: Option<DirectForm2Transposed<f32>>,
+    filter: Option<lowpass_filter::>,
     /// The group delay of this filter.
     group_delay: usize,
 }

@@ -58,6 +58,7 @@ libm = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
 ringbuffer = { version = "0.15.0", default-features = false }
 thiserror = { version = "2.0", default-features = false }
+lowpass-filter = "0.3.2"
 
 # +++ STD DEPENDENCIES +++
 cpal = { version = "0.16", default-features = false, features = [], optional = true }
