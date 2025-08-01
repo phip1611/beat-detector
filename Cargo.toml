@@ -56,7 +56,7 @@ required-features = ["recording"]
 biquad = { version = "0.5", default-features = false } # lowpass filter
 libm = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
-ringbuffer = { version = "0.15.0", default-features = false }
+ringbuffer = { version = "0.16.0", default-features = false }
 thiserror = { version = "2.0", default-features = false }
 
 # +++ STD DEPENDENCIES +++
