@@ -12,7 +12,7 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'phip1611/audio-visualizer'
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'phip1611/beat-detector'
     steps:
       - name: Approve PR
         run: gh pr review --approve "$PR_URL"
