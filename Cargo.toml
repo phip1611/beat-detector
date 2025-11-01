@@ -66,7 +66,7 @@ cpal = { version = "0.16", default-features = false, features = [], optional = t
 [dev-dependencies]
 audio-visualizer = "0.5.0"
 assert2 = "0.3"
-ctrlc = { version = "3.4", features = ["termination"] }
+ctrlc = { version = "3.5", features = ["termination"] }
 criterion = { version = "0.6", features = [] }
 float-cmp = "0.10.0"
 hound = "3.5"
