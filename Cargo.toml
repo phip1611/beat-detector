@@ -71,7 +71,7 @@ criterion = { version = "0.6", features = [] }
 float-cmp = "0.10.0"
 hound = "3.5"
 itertools = "0.14"
-simple_logger = "5.0"
+simple_logger = "5.1"
 minifb = "0.28"
 rand = "0.9"
 
