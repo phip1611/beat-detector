@@ -60,7 +60,7 @@ ringbuffer = { version = "0.15.0", default-features = false }
 thiserror = { version = "2.0", default-features = false }
 
 # +++ STD DEPENDENCIES +++
-cpal = { version = "0.16", default-features = false, features = [], optional = true }
+cpal = { version = "0.17", default-features = false, features = [], optional = true }
 
 
 [dev-dependencies]
