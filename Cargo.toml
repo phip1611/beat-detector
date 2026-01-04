@@ -67,7 +67,7 @@ cpal = { version = "0.16", default-features = false, features = [], optional = t
 audio-visualizer = "0.5.0"
 assert2 = "0.3"
 ctrlc = { version = "3.4", features = ["termination"] }
-criterion = { version = "0.6", features = [] }
+criterion = { version = "0.8", features = [] }
 float-cmp = "0.10.0"
 hound = "3.5"
 itertools = "0.14"
