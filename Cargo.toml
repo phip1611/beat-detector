@@ -73,7 +73,7 @@ hound = "3.5"
 itertools = "0.14"
 simple_logger = "5.0"
 minifb = "0.28"
-rand = "0.9"
+rand = "0.10"
 
 
 [profile.dev]
