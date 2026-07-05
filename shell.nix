@@ -24,7 +24,7 @@ pkgs.mkShell {
       gnuplot
 
       # Development
-      nixfmt-rfc-style
+      nixfmt-tree
       rustup
     ]
     ++ libDeps;
