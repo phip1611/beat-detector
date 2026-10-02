@@ -12,7 +12,7 @@ use lowpass_filter::LowpassFilter;
 const BLOCK_LEN: usize = 64;
 
 /// Frequencies below this, such as a DC offset of the audio input, are
-/// removed before the analysis.
+/// attenuated before the analysis.
 const DC_CUTOFF_HZ: f32 = 20.0;
 
 /// How fast the envelope falls after a peak. Long enough to bridge the zero
@@ -38,14 +38,16 @@ const BEAT_MEMORY: Duration = Duration::from_millis(500);
 /// adapts to the volume of the input.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Config {
-    /// Frequencies above this are removed before the analysis. Kick drums
-    /// have most of their energy below it.
+    /// Frequencies above this are attenuated before the analysis, by 6 dB
+    /// per octave. Kick drums have most of their energy below it.
     pub cutoff_hz: f32,
-    /// A beat must rise above the background level by this factor. Higher
-    /// values mean fewer false positives but more missed beats.
+    /// The rise of the envelope must exceed the background level times this
+    /// factor. Higher values mean fewer false positives but more missed
+    /// beats.
     pub trigger_ratio: f32,
-    /// A beat must rise at least to this fraction of the recent beats. This
-    /// rejects sounds that are clearly weaker than the beats of the song.
+    /// The rise of the envelope must exceed the envelope peak of the recent
+    /// beats times this factor. This rejects sounds that are clearly weaker
+    /// than the beats of the song.
     pub min_relative_strength: f32,
     /// Rises below this level are ignored, e.g., noise.
     pub min_level: f32,
@@ -90,7 +92,8 @@ pub struct Beat {
 ///   input.
 /// - **Recordings**: use [`detect_all`].
 ///
-/// The results are independent of how the input is split into buffers.
+/// The results are independent of how the input is split into buffers, as
+/// long as no buffer exceeds [`Self::max_chunk_len`].
 ///
 /// # Algorithm
 ///
@@ -100,7 +103,8 @@ pub struct Beat {
 /// 2. Follow the peak level of the block with an envelope that rises
 ///    instantly and falls within ~20 ms.
 /// 3. Track the background level: the average envelope of the last ~200 ms.
-/// 4. Report a beat if the envelope rose within the last ~6 ms by more than
+/// 4. Report a beat if the envelope rose within the last 4 blocks (6 ms at
+///    44.1 kHz) by more than
 ///    - the background level times [`Config::trigger_ratio`],
 ///    - the strength of the recent beats times
 ///      [`Config::min_relative_strength`], and

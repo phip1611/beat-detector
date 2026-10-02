@@ -1,9 +1,9 @@
 # beat-detector
 
-Beat detection for live audio and recordings, written in Rust. The library
+Beat detection for live audio and recordings, written in Rust. The detector
 is `no_std`, doesn't allocate, and keeps less than 1 KiB of state.
 
-- **Low latency**: beats are reported ~2 ms after their onset.
+- **Low latency**: beats are reported ~2 ms after their onset (at 44.1 kHz).
 - **Cheap**: ~1-2 ns per sample, i.e., well below 1 us per live audio
   buffer on a laptop CPU.
 - **Simple**: one small, documented algorithm without audio history.
@@ -50,10 +50,11 @@ for beat in beat_detector::detect_all(&samples, 44100.0) {
 The detector reports sudden rises in the level of the bass, i.e., kick
 drums. For each block of 64 samples, it
 
-1. filters the bass (20-120 Hz),
+1. filters the bass (20-120 Hz, 6 dB per octave),
 2. follows its level with an envelope,
-3. compares how much the envelope rose within ~6 ms against the background
-   level of the last ~200 ms and against the strength of the recent beats.
+3. compares how much the envelope rose within 4 blocks (6 ms at 44.1 kHz)
+   against the background level of the last ~200 ms and against the
+   strength of the recent beats.
 
 It adapts to the input volume. The defaults favor missed beats over false
 positives. See the documentation of `BeatDetector` for details and `Config`
