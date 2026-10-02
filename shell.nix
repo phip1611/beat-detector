@@ -3,10 +3,8 @@
 }:
 
 let
-  # Runtime dependencies for GUIs and graphics generation.
-  # Needed for examples and tests.
   libDeps = with pkgs; [
-    fontconfig
+    # gui examples (minifb)
     libxkbcommon
     xorg.libXcursor
     xorg.libX11
