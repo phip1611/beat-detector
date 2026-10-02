@@ -6,8 +6,8 @@ let
   libDeps = with pkgs; [
     # gui examples (minifb)
     libxkbcommon
-    xorg.libXcursor
-    xorg.libX11
+    libxcursor
+    libx11
   ];
 in
 pkgs.mkShell {
