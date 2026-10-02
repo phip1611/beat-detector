@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use beat_detector::BeatDetector;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 

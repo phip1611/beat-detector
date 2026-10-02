@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 //! Some common utilities required internally but also useful for external
 //! users, when working with this library.
 

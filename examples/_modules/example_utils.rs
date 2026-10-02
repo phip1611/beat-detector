@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #![allow(unused)]
 
 use cpal::traits::{DeviceTrait, HostTrait};
