@@ -40,7 +40,7 @@ name = "live-input-visualize"
 required-features = ["recording"]
 
 [dependencies]
-lowpass-filter = "0.5"
+lowpass-filter = "0.6"
 
 # recording
 cpal = { version = "0.18", default-features = false, optional = true }

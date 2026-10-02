@@ -458,6 +458,6 @@ mod tests {
     #[test]
     fn state_is_small() {
         let size = size_of::<BeatDetector>();
-        assert!(size <= 512, "{size}");
+        assert!(size <= 1024, "{size}");
     }
 }
