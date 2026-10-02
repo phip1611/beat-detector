@@ -24,12 +24,8 @@ rust-version = "1.88.0"
 
 [features]
 default = ["recording"]
-
-# Marker/helper
-std = []
-
-# Actual features
-recording = ["std", "dep:cpal"]
+# Beat detection on the audio input of the system. Requires std.
+recording = ["dep:cpal", "dep:log"]
 
 [[bench]]
 name = "detector"
@@ -44,12 +40,11 @@ name = "live-input-visualize"
 required-features = ["recording"]
 
 [dependencies]
-# +++ NOSTD DEPENDENCIES +++
-log = { version = "0.4", default-features = false }
 lowpass-filter = "0.5"
 
-# +++ STD DEPENDENCIES +++
-cpal = { version = "0.18", default-features = false, features = [], optional = true }
+# recording
+cpal = { version = "0.18", default-features = false, optional = true }
+log = { version = "0.4", default-features = false, optional = true }
 
 
 [dev-dependencies]
