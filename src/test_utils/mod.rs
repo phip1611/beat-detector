@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+pub mod eval;
 pub mod synth;
 
 use crate::util::stereo_to_mono;
