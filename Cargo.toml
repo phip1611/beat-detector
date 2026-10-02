@@ -26,6 +26,8 @@ rust-version = "1.88.0"
 default = ["recording"]
 # Beat detection on the audio input of the system. Requires std.
 recording = ["dep:cpal", "dep:log"]
+# Explicit SIMD implementation of the filters; requires Rust 1.89.
+simd = ["lowpass-filter/simd"]
 
 [[bench]]
 name = "detector"
