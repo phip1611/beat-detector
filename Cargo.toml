@@ -34,6 +34,10 @@ name = "detector"
 harness = false
 
 [[example]]
+name = "cpal-info"
+required-features = ["recording"]
+
+[[example]]
 name = "live-input-minimal"
 required-features = ["recording"]
 

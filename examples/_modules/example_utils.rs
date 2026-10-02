@@ -7,9 +7,12 @@ use log::LevelFilter;
 use std::io::{Read, Write};
 use std::process::exit;
 
+/// Logs at debug level by default; `RUST_LOG=trace` also shows the
+/// processing time of each audio buffer.
 pub fn init_logger() {
     simple_logger::SimpleLogger::new()
         .with_level(LevelFilter::Debug)
+        .env()
         .with_colors(true)
         .with_utc_timestamps()
         .init()
