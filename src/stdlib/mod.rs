@@ -21,9 +21,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+//! All modules that require `std` functionality.
 
-//! Module for getting audio input from external I/O sources, i.e., code that
-//! requires `std` functionality.
-
-#[cfg(todo)]
 pub mod recording;

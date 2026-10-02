@@ -22,10 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+use crate::RootIterator;
+use crate::{AudioHistory, SampleInfo};
 use core::cmp::Ordering;
 use ringbuffer::RingBuffer;
-use super::root_iterator::RootIterator;
-use crate::audio_preprocessing::audio_history::{AudioHistory, SampleInfo};
+
 // const IGNORE_NOISE_THRESHOLD: f32 = 0.05;
 
 /// Iterates the minima and maxima of the wave.
@@ -98,29 +99,27 @@ impl Iterator for MaxMinIterator<'_> {
 mod tests {
     use super::*;
     use crate::test_utils;
+    use crate::util::i16_sample_to_f32;
     use std::vec::Vec;
-    use crate::audio_preprocessing::conversion::i16_sample_to_f32;
 
     #[test]
     fn find_maxmin_in_holiday_excerpt() {
         let (samples, header) = test_utils::samples::holiday_excerpt();
-        let sample_rate = header.sample_rate as f32;
-        let sample_rate = sample_rate.try_into().unwrap();
-        let mut history = AudioHistory::new(sample_rate, None);
+        let mut history = AudioHistory::new(header.sample_rate as f32);
         history.update(samples.iter().copied());
 
         let iter = MaxMinIterator::new(&history, None);
         #[rustfmt::skip]
         assert_eq!(
-            iter.map(|info| (info.total_index_original, i16_sample_to_f32(info.amplitude).raw()))
+            iter.map(|info| (info.total_index, i16_sample_to_f32(info.value)))
                 .collect::<Vec<_>>(),
             // I checked in Audacity whether the values returned by the code
             // make sense. Then, they became the reference for the test.
             [
-                (542, 0.39100313),
-                (863, -0.06884976),
-                (1024, 0.24546038),
-                (1301, -0.30671102)
+                (539, 0.39054537),
+                (859, -0.0684225),
+                (1029, 0.24597919),
+                (1299, -0.30658895),
             ]
         );
     }
