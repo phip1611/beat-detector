@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use beat_detector::recording;
 use cpal::traits::StreamTrait;
 use minifb::{Key, Window, WindowOptions};
