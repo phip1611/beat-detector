@@ -95,10 +95,12 @@ where
     T: SizedSample,
     f32: FromSample<T>,
 {
-    let channels = usize::from(config.channels);
+    // Guards chunks_exact() against a bogus device configuration.
+    let channels = usize::from(config.channels.max(1));
     let sample_rate = config.sample_rate as f32;
     let mut detector = BeatDetector::new(sample_rate);
-    // Reused across callbacks to not allocate on the audio thread.
+    // Reused across callbacks: only allocates while it grows to the buffer
+    // size of the device.
     let mut mono = Vec::new();
 
     input_dev

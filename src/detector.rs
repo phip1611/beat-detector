@@ -12,7 +12,7 @@ use lowpass_filter::LowpassFilter;
 const BLOCK_LEN: usize = 64;
 
 /// Frequencies below this, such as a DC offset of the audio input, are
-/// removed before the analysis.
+/// attenuated before the analysis.
 const DC_CUTOFF_HZ: f32 = 20.0;
 
 /// How fast the envelope falls after a peak. Long enough to bridge the zero
@@ -38,14 +38,16 @@ const BEAT_MEMORY: Duration = Duration::from_millis(500);
 /// adapts to the volume of the input.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Config {
-    /// Frequencies above this are removed before the analysis. Kick drums
-    /// have most of their energy below it.
+    /// Frequencies above this are attenuated before the analysis, by 6 dB
+    /// per octave. Kick drums have most of their energy below it.
     pub cutoff_hz: f32,
-    /// A beat must rise above the background level by this factor. Higher
-    /// values mean fewer false positives but more missed beats.
+    /// The rise of the envelope must exceed the background level times this
+    /// factor. Higher values mean fewer false positives but more missed
+    /// beats.
     pub trigger_ratio: f32,
-    /// A beat must rise at least to this fraction of the recent beats. This
-    /// rejects sounds that are clearly weaker than the beats of the song.
+    /// The rise of the envelope must exceed the envelope peak of the recent
+    /// beats times this factor. This rejects sounds that are clearly weaker
+    /// than the beats of the song.
     pub min_relative_strength: f32,
     /// Rises below this level are ignored, e.g., noise.
     pub min_level: f32,
@@ -90,7 +92,8 @@ pub struct Beat {
 ///   input.
 /// - **Recordings**: use [`detect_all`].
 ///
-/// The results are independent of how the input is split into buffers.
+/// The results are independent of how the input is split into buffers, as
+/// long as no buffer exceeds [`Self::max_chunk_len`].
 ///
 /// # Algorithm
 ///
@@ -100,7 +103,8 @@ pub struct Beat {
 /// 2. Follow the peak level of the block with an envelope that rises
 ///    instantly and falls within ~20 ms.
 /// 3. Track the background level: the average envelope of the last ~200 ms.
-/// 4. Report a beat if the envelope rose within the last ~6 ms by more than
+/// 4. Report a beat if the envelope rose within the last 4 blocks (6 ms at
+///    44.1 kHz) by more than
 ///    - the background level times [`Config::trigger_ratio`],
 ///    - the strength of the recent beats times
 ///      [`Config::min_relative_strength`], and
@@ -154,16 +158,16 @@ impl BeatDetector {
     pub fn with_config(sample_rate_hz: f32, config: Config) -> Self {
         let block_secs = BLOCK_LEN as f32 / sample_rate_hz;
         // Approximates exp(-block_secs / time), which isn't available in
-        // no_std. Close enough as blocks are much shorter than the time
-        // constants.
-        let decay = |time: Duration| 1.0 - block_secs / time.as_secs_f32();
+        // no_std. Unlike `1 - x`, it stays in (0, 1] even if a block is
+        // longer than the time constant, i.e., at low sample rates.
+        let decay = |time: Duration| 1.0 / (1.0 + block_secs / time.as_secs_f32());
         Self {
             config,
             sample_rate_hz,
             lowpass: LowpassFilter::new(sample_rate_hz, config.cutoff_hz),
             dc_lowpass: LowpassFilter::new(sample_rate_hz, DC_CUTOFF_HZ),
             envelope_decay: decay(ENVELOPE_RELEASE),
-            background_weight: block_secs / BACKGROUND_WINDOW.as_secs_f32(),
+            background_weight: 1.0 - decay(BACKGROUND_WINDOW),
             beat_strength_decay: decay(BEAT_MEMORY),
             min_beat_gap: (config.min_beat_gap.as_secs_f32() * sample_rate_hz) as u64,
             block: [0.0; BLOCK_LEN],
@@ -213,7 +217,7 @@ impl BeatDetector {
     /// samples of [`Config::min_beat_gap`]. Such a chunk can't contain two
     /// beats.
     pub fn max_chunk_len(&self) -> usize {
-        self.min_beat_gap.max(1) as usize
+        usize::try_from(self.min_beat_gap.max(1)).unwrap_or(usize::MAX)
     }
 
     /// Current envelope level. For debugging and visualization.
@@ -342,6 +346,12 @@ mod tests {
     }
 
     #[test]
+    fn low_sample_rate() {
+        let synth = Synth::with_sample_rate(4.0, 8000.0).kicks(120.0, 0.5, 0.8);
+        check("low_sample_rate", synth.build());
+    }
+
+    #[test]
     fn silence_and_noise() {
         check("silence", Synth::new(2.0).build());
         check("noise", Synth::new(2.0).noise(0.05).build());
@@ -452,6 +462,20 @@ mod tests {
             let onset = Duration::from_secs_f32(onset as f32 / signal.sample_rate);
             let latency = beat.time - onset;
             assert!(latency < Duration::from_millis(5), "{latency:?}");
+        }
+    }
+
+    #[test]
+    fn per_block_factors_are_valid_at_any_sample_rate() {
+        for sample_rate in [240.0, 1000.0, 3000.0, 8000.0, 44100.0, 192000.0] {
+            let detector = BeatDetector::new(sample_rate);
+            for factor in [
+                detector.envelope_decay,
+                detector.background_weight,
+                detector.beat_strength_decay,
+            ] {
+                assert!(factor > 0.0 && factor <= 1.0, "{sample_rate} Hz: {factor}");
+            }
         }
     }
 

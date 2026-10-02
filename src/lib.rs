@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-//! beat-detector detects beats in live audio and in recordings. It is
-//! `no_std`-compatible, doesn't allocate, and keeps only a few hundred bytes
-//! of state.
+//! beat-detector detects beats in live audio and in recordings. The detector
+//! is `no_std`-compatible, doesn't allocate, and keeps only a few hundred
+//! bytes of state.
 //!
 //! ## Live Audio
 //!
