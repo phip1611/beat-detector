@@ -67,16 +67,14 @@
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::all)]
 
-#[cfg_attr(any(test, feature = "std"), macro_use)]
-#[cfg(any(test, feature = "std"))]
+#[cfg_attr(any(test, feature = "recording"), macro_use)]
+#[cfg(any(test, feature = "recording"))]
 extern crate std;
 
 mod detector;
-#[cfg(feature = "std")]
-mod stdlib;
+#[cfg(feature = "recording")]
+pub mod recording;
 #[cfg(test)]
 mod test_utils;
 
 pub use detector::{Beat, BeatDetector, Config, detect_all};
-#[cfg(feature = "std")]
-pub use stdlib::*;
