@@ -6,7 +6,7 @@
 //! To run bench these, run `$ cargo bench "convert samples"`
 
 use beat_detector::util::{f32_sample_to_i16, i16_sample_to_f32, stereo_to_mono};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use itertools::Itertools;
 use std::hint::black_box;
 

@@ -4,7 +4,7 @@
 
 use crate::EnvelopeInfo;
 use crate::{AudioHistory, EnvelopeIterator};
-use biquad::{Biquad, Coefficients, DirectForm1, ToHertz, Type, Q_BUTTERWORTH_F32};
+use biquad::{Biquad, Coefficients, DirectForm1, Q_BUTTERWORTH_F32, ToHertz, Type};
 use core::fmt::Debug;
 
 /// Cutoff frequency for the lowpass filter to detect beats.
@@ -153,7 +153,7 @@ impl BeatDetector {
 #[allow(clippy::missing_const_for_fn)]
 mod tests {
     use super::*;
-    use crate::{test_utils, SampleInfo};
+    use crate::{SampleInfo, test_utils};
     use std::time::Duration;
     use std::vec::Vec;
 
