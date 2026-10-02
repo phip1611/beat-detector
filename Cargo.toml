@@ -19,7 +19,6 @@ exclude = [
     ".cargo",
     ".editorconfig",
     ".github",
-    "check-build.sh",
     "demo.gif",
     "src/bin", # only internal binaries, if any
     "res"
