@@ -16,7 +16,6 @@ homepage = "https://github.com/phip1611/beat-detector"
 repository = "https://github.com/phip1611/beat-detector"
 documentation = "https://docs.rs/beat-detector"
 exclude = [
-    ".cargo",
     ".editorconfig",
     ".github",
     "demo.gif",
