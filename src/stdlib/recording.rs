@@ -2,7 +2,7 @@
 
 //! Beat detection on the audio input of the system, using [`cpal`].
 
-use crate::detector::{Beat, BeatDetector};
+use crate::{Beat, BeatDetector};
 use core::fmt::{Display, Formatter};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SampleFormat, SizedSample, StreamConfig};
