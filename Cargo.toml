@@ -22,7 +22,7 @@ exclude = [
     "src/bin", # only internal binaries, if any
     "res"
 ]
-rust-version = "1.85.0"
+rust-version = "1.88.0"
 
 [features]
 default = ["recording"]
@@ -54,6 +54,7 @@ required-features = ["recording"]
 biquad = { version = "=0.4", default-features = false } # lowpass filter
 libm = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
+lowpass-filter = "0.5"
 ringbuffer = { version = "0.15.0", default-features = false }
 
 # +++ STD DEPENDENCIES +++

@@ -95,4 +95,4 @@ fn select_strategy() -> StrategyKind {
 
 ## MSRV (Minimal Supported Rust Version)
 
-1.85 stable
+1.88 stable
