@@ -1,98 +1,116 @@
-# Beat Detector - Audio Beat Detection Library Written In Rust
+# beat-detector
 
-beat-detector detects beats in live audio, but can also be used for post
-analysis of audio data. It is a library written in Rust that is
-`no_std`-compatible and doesn't need `alloc`.
+Beat detection for live audio and recordings, written in Rust. The library
+is `no_std`, doesn't allocate, and keeps less than 1 KiB of state.
 
-beat-detector was developed with typical sampling rates and bit depths in
-mind, namely 44.1 kHz, 48.0 kHz, and 16 bit. Other input sources might work
-as well.
+- **Low latency**: beats are reported ~2 ms after their onset.
+- **Cheap**: ~1-2 ns per sample, i.e., well below 1 us per live audio
+  buffer on a laptop CPU.
+- **Simple**: one small, documented algorithm without audio history.
 
-# Performance / Latency
-On a realistic workload each analysis step of my algorithm, i.e., on each new audio input, took 0.5ms on a Raspberry
-Pi and 0.05ms on an Intel i5-10600K. The benchmark binary was build as optimized release build. Thus, this is the
-minimum latency you have to expect plus additional latency from the audio input interface.
-The benchmark can be executed with: `cargo run --release --example --bench`
-
-TODO: performance/latency over memory usage. Thus higher memory usage and more buffers for maximum performance
-
----
-
-This is a Rust library that enables beat detection on live audio data input.
-One use case is that you have an audio/aux-splitter on your computer where one
-end goes into the sound system whereas the other goes into the microphone input
-of a Raspberry Pi.
-
-TODO outdated
-
-The crate provides multiple strategies that you can connect to the audio source.
-So far it offers two strategies:
-- **Simple Lowpass Filter**
-  - not really good, must be more fine-tuned
-- **Simple Spectrum Analysis**
-  - good enough for most "simple" songs, like 90s pop hits or "Kids" by "MGMT"
-- Super Awesome Analysis (TODO) - **CODE CONTRIBUTIONS ARE WELCOME**
-
-I'm not an expert in audio analysis, but I'm proud what I achieved so far with the spectrum strategy.
-This library needs a more "bulletproof" strategy, to cope with complex and fast songs.
-
-Here's a demo I recorded in my room. Of course, it was synced to music, when I recorded it. :)
+A typical setup: an audio splitter feeds the music both into the speakers
+and into the line input of a Raspberry Pi, which flashes lights on each
+beat.
 
 ![Beat Detection Demo With WS2812 RGBs](demo.gif "Beat Detection Demo With WS2812 RGBs")
 
-## How To Use
-**Cargo.toml**
+## Usage
+
 ```toml
+[dependencies]
 beat-detector = "<latest version>"
 ```
 
-**code.rs**
-(also see `examples/` in repository!)
+**Live audio**: pass each buffer of the audio input to the detector. It
+expects mono `f32` samples in range `-1.0..=1.0`.
+
 ```rust
-//! Minimum example on how to use this library. Sets up the "callback loop".
+use beat_detector::BeatDetector;
 
-use cpal::Device;
-use beat_detector::StrategyKind;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-
-/// Minimum example on how to use this library. Sets up the "callback loop".
-fn main() {
-    let recording = Arc::new(AtomicBool::new(true));
-
-    let recording_cpy = recording.clone();
-    ctrlc::set_handler(move || {
-        eprintln!("Stopping recording");
-        recording_cpy.store(false, Ordering::SeqCst);
-    }).unwrap();
-
-    let dev = select_input_device();
-    let strategy = select_strategy();
-    let on_beat = |info| {
-        println!("Found beat at {:?}ms", info);
-    };
-    // actually start listening in thread
-    let handle = beat_detector::record::start_listening(
-        on_beat,
-        Some(dev),
-        strategy,
-        recording,
-    ).unwrap();
-
-    handle.join().unwrap();
-}
-
-fn select_input_device() -> Device {
-    // todo implement user selection
-    beat_detector::record::audio_input_device_list().into_iter().next().expect("At least one audio input device must be available.").1
-}
-
-fn select_strategy() -> StrategyKind {
-    // todo implement user selection
-    StrategyKind::Spectrum
+let mut detector = BeatDetector::new(44100.0);
+// In the callback of your audio input:
+if let Some(beat) = detector.process(&buffer) {
+    println!("beat at {:?}", beat.time);
 }
 ```
 
-## MSRV (Minimal Supported Rust Version)
+With the `recording` feature (default), `recording::start_detector_thread()`
+does this for the audio input of the system, using [cpal].
 
-1.88 stable
+**Recordings**: get all beats of a file with timestamps from its beginning:
+
+```rust
+for beat in beat_detector::detect_all(&samples, 44100.0) {
+    println!("beat at {:?}", beat.time);
+}
+```
+
+## How It Works
+
+The detector reports sudden rises in the level of the bass, i.e., kick
+drums. For each block of 64 samples, it
+
+1. filters the bass (20-120 Hz),
+2. follows its level with an envelope,
+3. compares how much the envelope rose within ~6 ms against the background
+   level of the last ~200 ms and against the strength of the recent beats.
+
+It adapts to the input volume. The defaults favor missed beats over false
+positives. See the documentation of `BeatDetector` for details and `Config`
+for tuning.
+
+Known limitations:
+
+- It detects kicks, not the beat of music without them.
+- After a sudden, large volume drop, the first quieter beat is missed: in the
+  tests, a drop of 10 dB is fine, a drop of 18 dB is not.
+- The first bass note after silence is reported as a beat. So is the start
+  of a recording that begins in the middle of a song.
+
+## Checking and Debugging
+
+**Real music**: detect the beats of a local WAV file and compare them with
+the waveform:
+
+```sh
+cargo run --release --example analyze-wav -- song.wav
+```
+
+It prints all beats and the processing cost, and writes `song.beats.txt`.
+Import it in [Audacity] with "File > Import > Labels..." to see each beat as
+a marker on the waveform.
+
+**Live input**: `cargo run --release --example live-input-minimal` prints
+each beat. With `RUST_LOG=trace`, it also logs the processing time of each
+audio buffer. `live-input-visualize` flashes a window on each beat.
+
+**Tests** use synthetic signals with exactly known beats: kicks, hi-hats,
+snares, bass notes, noise, and DC offset, each at different volumes. For
+each beat, the evaluation shows the latency from its onset in the input to
+its detection. When a test fails, it prints a table of all onsets and
+detections, a text view of the signal, and writes a PNG of it to
+`target/test-artifacts/`:
+
+```text
+     onset    detected     latency
+  500.0 ms    502.1 ms      2.1 ms
+         -    774.9 ms  FALSE POSITIVE
+ 1000.0 ms   1001.3 ms      1.3 ms
+...
+```
+
+**Performance**: `cargo bench` measures the cost per sample and per live
+audio buffer.
+
+## Features
+
+- `recording` (default): beat detection on the audio input of the system.
+  Requires `std`.
+- `simd`: explicit SIMD implementation of the filters. Requires Rust 1.89.
+
+## MSRV
+
+The MSRV of the library is 1.88, or 1.89 with the `simd` feature.
+
+[Audacity]: https://www.audacityteam.org/
+[cpal]: https://crates.io/crates/cpal
