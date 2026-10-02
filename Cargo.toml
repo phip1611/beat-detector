@@ -34,11 +34,7 @@ std = []
 recording = ["std", "dep:cpal"]
 
 [[bench]]
-name = "beat_detection_bench"
-harness = false
-
-[[bench]]
-name = "general"
+name = "detector"
 harness = false
 
 [[example]]
@@ -65,13 +61,12 @@ cpal = { version = "0.18", default-features = false, features = [], optional = t
 assert2 = "0.3"
 audio-visualizer = "0.7"
 ctrlc = { version = "3.4", features = ["termination"] }
-criterion = { version = "0.6", features = [] }
+criterion = "0.8"
 float-cmp = "0.10.0"
 hound = "3.5"
 itertools = "0.14"
 simple_logger = "5.0"
 minifb = "0.28"
-rand = "0.9"
 
 
 [profile.dev]
