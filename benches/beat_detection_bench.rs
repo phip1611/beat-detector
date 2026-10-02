@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use beat_detector::BeatDetector;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let (samples, header) = samples::holiday_long();
