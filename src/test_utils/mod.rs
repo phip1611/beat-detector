@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+pub mod synth;
+
 use crate::util::stereo_to_mono;
 use itertools::Itertools;
 use std::path::Path;
