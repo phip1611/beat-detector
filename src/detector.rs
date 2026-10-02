@@ -213,7 +213,7 @@ impl BeatDetector {
     /// samples of [`Config::min_beat_gap`]. Such a chunk can't contain two
     /// beats.
     pub fn max_chunk_len(&self) -> usize {
-        self.min_beat_gap.max(1) as usize
+        usize::try_from(self.min_beat_gap.max(1)).unwrap_or(usize::MAX)
     }
 
     /// Current envelope level. For debugging and visualization.
