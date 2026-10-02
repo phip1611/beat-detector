@@ -154,16 +154,16 @@ impl BeatDetector {
     pub fn with_config(sample_rate_hz: f32, config: Config) -> Self {
         let block_secs = BLOCK_LEN as f32 / sample_rate_hz;
         // Approximates exp(-block_secs / time), which isn't available in
-        // no_std. Close enough as blocks are much shorter than the time
-        // constants.
-        let decay = |time: Duration| 1.0 - block_secs / time.as_secs_f32();
+        // no_std. Unlike `1 - x`, it stays in (0, 1] even if a block is
+        // longer than the time constant, i.e., at low sample rates.
+        let decay = |time: Duration| 1.0 / (1.0 + block_secs / time.as_secs_f32());
         Self {
             config,
             sample_rate_hz,
             lowpass: LowpassFilter::new(sample_rate_hz, config.cutoff_hz),
             dc_lowpass: LowpassFilter::new(sample_rate_hz, DC_CUTOFF_HZ),
             envelope_decay: decay(ENVELOPE_RELEASE),
-            background_weight: block_secs / BACKGROUND_WINDOW.as_secs_f32(),
+            background_weight: 1.0 - decay(BACKGROUND_WINDOW),
             beat_strength_decay: decay(BEAT_MEMORY),
             min_beat_gap: (config.min_beat_gap.as_secs_f32() * sample_rate_hz) as u64,
             block: [0.0; BLOCK_LEN],
@@ -342,6 +342,12 @@ mod tests {
     }
 
     #[test]
+    fn low_sample_rate() {
+        let synth = Synth::with_sample_rate(4.0, 8000.0).kicks(120.0, 0.5, 0.8);
+        check("low_sample_rate", synth.build());
+    }
+
+    #[test]
     fn silence_and_noise() {
         check("silence", Synth::new(2.0).build());
         check("noise", Synth::new(2.0).noise(0.05).build());
@@ -452,6 +458,20 @@ mod tests {
             let onset = Duration::from_secs_f32(onset as f32 / signal.sample_rate);
             let latency = beat.time - onset;
             assert!(latency < Duration::from_millis(5), "{latency:?}");
+        }
+    }
+
+    #[test]
+    fn per_block_factors_are_valid_at_any_sample_rate() {
+        for sample_rate in [240.0, 1000.0, 3000.0, 8000.0, 44100.0, 192000.0] {
+            let detector = BeatDetector::new(sample_rate);
+            for factor in [
+                detector.envelope_decay,
+                detector.background_weight,
+                detector.beat_strength_decay,
+            ] {
+                assert!(factor > 0.0 && factor <= 1.0, "{sample_rate} Hz: {factor}");
+            }
         }
     }
 
