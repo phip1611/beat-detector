@@ -19,8 +19,6 @@ exclude = [
     ".editorconfig",
     ".github",
     "demo.gif",
-    "src/bin", # only internal binaries, if any
-    "res"
 ]
 rust-version = "1.88.0"
 
