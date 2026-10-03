@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 //! Benchmarks a few general audio transformations relevant in the field of this
 //! crate. Useful to run this on a host platform to see the roughly costs.
 //!

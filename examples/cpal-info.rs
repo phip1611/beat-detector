@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use cpal::traits::DeviceTrait;
 
 #[path = "_modules/example_utils.rs"]
