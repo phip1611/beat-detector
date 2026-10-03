@@ -1,69 +1,52 @@
 // SPDX-License-Identifier: MIT
 
-//! beat-detector detects beats in live audio, but can also be used for post
-//! analysis of audio data. It is a library written in Rust that is
-//! `no_std`-compatible and doesn't need `alloc`.
+//! beat-detector detects beats in live audio and in recordings. It is
+//! `no_std`-compatible, doesn't allocate, and keeps only a few hundred bytes
+//! of state.
 //!
-//! beat-detector was developed with typical sampling rates and bit depths in
-//! mind, namely 44.1 kHz, 48.0 kHz, and 16 bit. Other input sources might work
-//! as well.
+//! ## Live Audio
 //!
-//!
-//! ## TL;DR
-//!
-//! Use [`BeatDetector`].
-//!
-//! ## Audio Source
-//!
-//! The library operates on `i16` mono-channel samples. There are public helpers
-//! that might assist you preparing the audio material for the crate:
-//!
-//! - [`util::f32_sample_to_i16`]
-//! - [`util::stereo_to_mono`]
-//!
-//! ## Example
+//! Pass each new buffer of the audio input to [`BeatDetector::process`]:
 //!
 //! ```rust
 //! use beat_detector::BeatDetector;
-//! let mono_samples = [0, 500, -800, 700 /*, ... */];
-//! let mut detector = BeatDetector::new(44100.0, false);
 //!
-//! let is_beat = detector.update_and_detect_beat(
-//!     mono_samples.iter().copied()
-//! );
+//! let mut detector = BeatDetector::new(44100.0);
+//! // In the callback of your audio input:
+//! let buffer = [0.0_f32; 256];
+//! if let Some(beat) = detector.process(&buffer) {
+//!     println!("beat at {:?}", beat.time);
+//! }
 //! ```
 //!
-//! ## Detection and Usage
+//! With the `recording` feature, [`recording::start_detector_thread`] does
+//! this for the audio input of the system.
 //!
-//! The beat detector is supposed to be continuously invoked with the latest
-//! audio samples. On each invocation, it checks if the internal audio buffer
-//! contains a beat. The same beat won't be reported multiple times.
+//! ## Recordings
 //!
-//! The detector should be regularly fed with samples that are only
-//! a fraction of the internal buffer, For live analysis, ~20ms per invocation
-//! are fine. For post analysis, this property is not too important.
+//! [`detect_all`] returns the beats of a complete recording, e.g., to compare
+//! them with the waveform in an audio editor such as Audacity:
 //!
-//! However, the new audio samples should never be more than what the internal
-//! buffer can hold, otherwise you might lose beats.
+//! ```rust
+//! let samples = vec![0.0_f32; 44100];
+//! for beat in beat_detector::detect_all(&samples, 44100.0) {
+//!     println!("beat at {:?}", beat.time);
+//! }
+//! ```
 //!
-//! ### Audio Source
+//! ## Audio Input
 //!
-//! The audio source must have a certain amount of power. Very low values are
-//! considered as noise and are not taken into account. But you need also to
-//! prevent clipping! Ideally, you check your audio source with the "Record"
-//! feature of Audacity or a similar tool visually, so that you can limit
-//! potential sources of error.
+//! The detector expects mono `f32` samples in range `-1.0..=1.0`. Convert
+//! `i16` samples with `f32::from(sample) / 32768.0` and mix stereo channels
+//! by averaging them. The volume doesn't matter much: the detector adapts to
+//! it.
 //!
 //! ## Detection Strategy
 //!
-//! The beat detection strategy is **not** based on state-of-the-art scientific
-//! research, but on a best-effort approach and common sense.
-//!
-//! ## Technical Information
-//!
-//! beat-detector uses a smart chaining of iterators in different abstraction
-//! levels to minimize buffering. In that process, it tries to never iterate
-//! data multiple times, if not necessary, to keep the latency low.
+//! The detector reports sudden rises in the level of the bass, i.e., kick
+//! drums, a few milliseconds after their onset. It is not based on
+//! state-of-the-art research but aims to be simple and understandable. See
+//! [`BeatDetector`] for the details.
 
 #![no_std]
 #![deny(
@@ -84,107 +67,16 @@
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::all)]
 
-extern crate alloc;
 #[cfg_attr(any(test, feature = "std"), macro_use)]
 #[cfg(any(test, feature = "std"))]
 extern crate std;
 
-// Better drop-in replacement for "assert!" and even better "check!" macro.
-#[cfg_attr(test, macro_use)]
-#[cfg(test)]
-extern crate assert2;
-
-#[cfg_attr(test, macro_use)]
-#[cfg(test)]
-extern crate float_cmp;
-
-mod audio_history;
-mod beat_detector;
-pub mod detector;
-mod envelope_iterator;
-mod max_min_iterator;
-mod root_iterator;
+mod detector;
 #[cfg(feature = "std")]
 mod stdlib;
-/// PRIVATE. For tests and helper binaries.
 #[cfg(test)]
 mod test_utils;
-pub mod util;
 
-pub use audio_history::{AudioHistory, SampleInfo};
-pub use beat_detector::{BeatDetector, BeatInfo};
-pub use envelope_iterator::{EnvelopeInfo, EnvelopeIterator};
+pub use detector::{Beat, BeatDetector, Config, detect_all};
 #[cfg(feature = "std")]
 pub use stdlib::*;
-
-use max_min_iterator::MaxMinIterator;
-use root_iterator::RootIterator;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::audio_history::AudioHistory;
-    use crate::max_min_iterator::MaxMinIterator;
-    use crate::test_utils;
-    use std::vec::Vec;
-
-    fn _print_sample_stats((samples, header): (Vec<i16>, hound::WavSpec)) {
-        let mut history = AudioHistory::new(header.sample_rate as f32);
-        history.update(samples.iter().copied());
-
-        let all_peaks = MaxMinIterator::new(&history, None).collect::<Vec<_>>();
-
-        let abs_peak_value_iter = all_peaks.iter().map(|info| info.value_abs);
-
-        let max: i16 = abs_peak_value_iter.clone().max().unwrap();
-        let min: i16 = abs_peak_value_iter.clone().min().unwrap();
-
-        let avg: i16 =
-            (abs_peak_value_iter.map(|v| v as u64).sum::<u64>() / all_peaks.len() as u64) as i16;
-
-        let mut all_peaks_sorted = all_peaks.clone();
-        all_peaks_sorted.sort_by(|a, b| a.value_abs.partial_cmp(&b.value_abs).unwrap());
-
-        let median: i16 = all_peaks_sorted[all_peaks_sorted.len() / 2].value_abs;
-
-        eprintln!("max abs peak     : {max:.3}");
-        eprintln!("min abs peak     : {min:.3}");
-        eprintln!("average abs peak : {avg:.3}");
-        eprintln!("median abs peak  : {median:.3}");
-        eprintln!("max / avg peak   : {:.3}", max / avg);
-        eprintln!("max / median peak: {:.3}", max / median);
-        eprintln!(
-            "peaks abs        : {:#.3?}",
-            all_peaks
-                .iter()
-                .map(|info| info.value_abs)
-                .collect::<Vec<_>>()
-        );
-        eprintln!(
-            "peak next_to_curr ratio: {:#.3?}",
-            all_peaks
-                .iter()
-                .zip(all_peaks.iter().skip(1))
-                .map(|(current, next)| { next.value_abs / current.value_abs })
-                .collect::<Vec<_>>()
-        );
-    }
-
-    /// This just prints a few statistics of the used sample. This helps to
-    /// understand characteristics of certain properties in a sample, such as
-    /// the characteristic of an envelope.
-    #[test]
-    fn print_holiday_single_beat_stats() {
-        eprintln!("holiday stats (single beat):");
-        _print_sample_stats(test_utils::samples::holiday_single_beat())
-    }
-
-    /// This just prints a few statistics of the used sample. This helps to
-    /// understand characteristics of certain properties in a sample, such as
-    /// the characteristic of an envelope.
-    #[test]
-    fn print_sample1_single_beat_stats() {
-        eprintln!("sample1 stats (single beat):");
-        _print_sample_stats(test_utils::samples::sample1_single_beat())
-    }
-}
