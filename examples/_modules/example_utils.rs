@@ -35,7 +35,7 @@ fn get_input_devices() -> Vec<(cpal::HostId, Vec<cpal::Device>)> {
                     // check: is input device?
                     .filter(|dev| dev.default_input_config().is_ok())
                     // check: can we get its name?
-                    .filter(|dev| dev.name().is_ok())
+                    .filter(|dev| dev.description().is_ok())
                     .collect::<Vec<_>>(),
             )
         })
@@ -74,8 +74,9 @@ pub fn select_audio_device() -> cpal::Device {
             device_i,
             host_id,
             device
-                .name()
+                .description()
                 .expect("should be existent at that point due to the filtering")
+                .name()
         );
     }
 

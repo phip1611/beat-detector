@@ -10,32 +10,29 @@ use std::error::Error;
 use std::string::ToString;
 use std::time::{Duration, Instant};
 
+/// Errors of [`start_detector_thread`].
 #[derive(Debug)]
-// #[derive(Debug, Clone)]
 pub enum StartDetectorThreadError {
     /// There was no audio device provided and no default device can be found.
     NoDefaultAudioDevice,
-    /// There was a problem detecting the input stream config.
-    InputConfigError(cpal::DefaultStreamConfigError),
-    /// Failed to build an input stream.
-    FailedBuildingInputStream(cpal::BuildStreamError),
-    /// There was a problem
-    InputError(cpal::PlayStreamError),
+    /// The audio backend failed to set up or start the input stream.
+    Cpal(cpal::Error),
 }
 
 impl Display for StartDetectorThreadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("{:?}", self))
+        match self {
+            Self::NoDefaultAudioDevice => f.write_str("no default audio input device"),
+            Self::Cpal(_) => f.write_str("audio backend error"),
+        }
     }
 }
 
 impl std::error::Error for StartDetectorThreadError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::InputConfigError(err) => Some(err),
-            Self::FailedBuildingInputStream(err) => Some(err),
-            Self::InputError(err) => Some(err),
-            _ => None,
+            Self::NoDefaultAudioDevice => None,
+            Self::Cpal(err) => Some(err),
         }
     }
 }
@@ -55,12 +52,15 @@ pub fn start_detector_thread(
 
     log::debug!(
         "Using '{}' as input device",
-        input_dev.name().unwrap_or_else(|_| "<unknown>".to_string())
+        input_dev
+            .description()
+            .map(|d| d.name().to_string())
+            .unwrap_or_else(|_| "<unknown>".to_string())
     );
 
     let supported_input_config = input_dev
         .default_input_config()
-        .map_err(StartDetectorThreadError::InputConfigError)?;
+        .map_err(StartDetectorThreadError::Cpal)?;
 
     log::trace!(
         "Supported input configurations: {:#?}",
@@ -76,13 +76,13 @@ pub fn start_detector_thread(
 
     log::debug!("Input configuration: {:#?}", input_config);
 
-    let sampling_rate = input_config.sample_rate.0 as f32;
+    let sampling_rate = input_config.sample_rate as f32;
     let mut detector = BeatDetector::new(sampling_rate, true);
 
     // Under the hood, this spawns a thread.
     let stream = input_dev
         .build_input_stream(
-            &input_config,
+            input_config,
             move |data: &[i16], _info| {
                 log::trace!(
                     "audio input callback: {} samples ({} ms, sampling rate = {sampling_rate})",
@@ -109,11 +109,9 @@ pub fn start_detector_thread(
             // https://github.com/RustAudio/cpal/pull/696
             Some(Duration::from_secs(1)),
         )
-        .map_err(StartDetectorThreadError::FailedBuildingInputStream)?;
+        .map_err(StartDetectorThreadError::Cpal)?;
 
-    stream
-        .play()
-        .map_err(StartDetectorThreadError::InputError)?;
+    stream.play().map_err(StartDetectorThreadError::Cpal)?;
 
     Ok(stream)
 }
