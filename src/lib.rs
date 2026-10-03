@@ -100,6 +100,7 @@ extern crate float_cmp;
 
 mod audio_history;
 mod beat_detector;
+pub mod detector;
 mod envelope_iterator;
 mod max_min_iterator;
 mod root_iterator;
