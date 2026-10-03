@@ -2,8 +2,8 @@
 
 use beat_detector::recording;
 use cpal::traits::StreamTrait;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[path = "_modules/example_utils.rs"]
 mod example_utils;

@@ -63,13 +63,13 @@ impl Iterator for RootIterator<'_> {
             // Given the very high sampling rate, we can sacrifice a negligible
             // impact on precision for better performance / fewer iterations.
             .step_by(10)
-            .skip_while(|(_, &sample)| sample.abs() < IGNORE_NOISE_THRESHOLD);
+            .skip_while(|&(_, &sample)| sample.abs() < IGNORE_NOISE_THRESHOLD);
 
         let initial_state = State::from(iter.next().map(|(_, &sample)| sample)?);
 
         let next_root = iter
             // Skip while we didn't cross the x axis.
-            .find(|(_, &sample)| State::from(sample) != initial_state)
+            .find(|&(_, &sample)| State::from(sample) != initial_state)
             // We are looking for the index right before the zero.
             .map(|(index, _)| index - 1);
 

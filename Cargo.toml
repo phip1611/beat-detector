@@ -7,7 +7,7 @@ analysis of audio data. It is a library written in Rust that is
 """
 version = "0.2.0"
 authors = ["Philipp Schuster <phip1611@gmail.com>"]
-edition = "2021"
+edition = "2024"
 license = "MIT"
 keywords = ["audio", "beat", "beat-detection"]
 categories = ["multimedia::audio", "no-std"]
@@ -22,7 +22,7 @@ exclude = [
     "src/bin", # only internal binaries, if any
     "res"
 ]
-rust-version = "1.76.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["recording"]
