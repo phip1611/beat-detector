@@ -18,6 +18,15 @@ const ENVELOPE_RELEASE: Duration = Duration::from_millis(20);
 /// Time window of the background level.
 const BACKGROUND_WINDOW: Duration = Duration::from_millis(200);
 
+/// Number of blocks over which the rise of the envelope is measured (6 ms at
+/// 44.1 kHz). Kicks rise within a few milliseconds, whereas bass notes and
+/// other sounds swell in more slowly.
+const RISE_BLOCKS: usize = 4;
+
+/// How long the strength of a beat is remembered for
+/// [`Config::min_relative_strength`].
+const BEAT_MEMORY: Duration = Duration::from_millis(500);
+
 /// Tuning parameters of the [`BeatDetector`].
 ///
 /// The defaults work for typical music. All levels refer to samples in range
@@ -28,10 +37,13 @@ pub struct Config {
     /// Frequencies above this are removed before the analysis. Kick drums
     /// have most of their energy below it.
     pub cutoff_hz: f32,
-    /// A beat must exceed the background level by this factor. Higher values
-    /// mean fewer false positives but more missed beats.
+    /// A beat must rise above the background level by this factor. Higher
+    /// values mean fewer false positives but more missed beats.
     pub trigger_ratio: f32,
-    /// Levels below this are ignored, e.g., noise.
+    /// A beat must rise at least to this fraction of the recent beats. This
+    /// rejects sounds that are clearly weaker than the beats of the song.
+    pub min_relative_strength: f32,
+    /// Rises below this level are ignored, e.g., noise.
     pub min_level: f32,
     /// Minimum time between two beats. Limits the maximum tempo.
     pub min_beat_gap: Duration,
@@ -41,7 +53,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cutoff_hz: 120.0,
-            trigger_ratio: 2.0,
+            trigger_ratio: 1.2,
+            min_relative_strength: 0.6,
             min_level: 0.005,
             min_beat_gap: Duration::from_millis(100),
         }
@@ -63,9 +76,9 @@ pub struct Beat {
 
 /// Detects beats in a stream of mono audio samples.
 ///
-/// The detector looks for bass that is loud compared to the recent past. It
-/// keeps no audio history: its state is a few hundred bytes, and each sample
-/// is processed exactly once.
+/// The detector looks for sudden rises in the level of the bass. It keeps no
+/// audio history: its state is a few hundred bytes, and each sample is
+/// processed exactly once.
 ///
 /// It works the same for live audio and for whole recordings:
 ///
@@ -83,8 +96,11 @@ pub struct Beat {
 /// 2. Follow the peak level of the block with an envelope that rises
 ///    instantly and falls within ~20 ms.
 /// 3. Track the background level: the average envelope of the last ~200 ms.
-/// 4. Report a beat if the envelope exceeds the background level times
-///    [`Config::trigger_ratio`] and [`Config::min_level`].
+/// 4. Report a beat if the envelope rose within the last ~6 ms by more than
+///    - the background level times [`Config::trigger_ratio`],
+///    - the strength of the recent beats times
+///      [`Config::min_relative_strength`], and
+///    - [`Config::min_level`].
 ///
 /// After a beat, the detector waits until the envelope fell below the
 /// background level and [`Config::min_beat_gap`] passed.
@@ -96,6 +112,7 @@ pub struct BeatDetector {
     /// Per-block factors derived from the time constants.
     envelope_decay: f32,
     background_weight: f32,
+    beat_strength_decay: f32,
     min_beat_gap: u64,
 
     /// Samples not yet analyzed as they don't fill a block.
@@ -104,8 +121,13 @@ pub struct BeatDetector {
     /// Number of samples analyzed so far.
     position: u64,
     envelope: f32,
+    /// The envelopes of the last [`RISE_BLOCKS`] blocks, as ring buffer.
+    recent_envelopes: [f32; RISE_BLOCKS],
+    recent_index: usize,
     /// `None` until the first block initializes it.
     background: Option<f32>,
+    /// Decaying envelope peak of the recent beats.
+    beat_strength: f32,
     armed: bool,
     last_beat: Option<u64>,
 }
@@ -126,21 +148,26 @@ impl BeatDetector {
     /// Panics if the sample rate is below twice [`Config::cutoff_hz`].
     pub fn with_config(sample_rate_hz: f32, config: Config) -> Self {
         let block_secs = BLOCK_LEN as f32 / sample_rate_hz;
+        // Approximates exp(-block_secs / time), which isn't available in
+        // no_std. Close enough as blocks are much shorter than the time
+        // constants.
+        let decay = |time: Duration| 1.0 - block_secs / time.as_secs_f32();
         Self {
             config,
             sample_rate_hz,
             lowpass: LowpassFilter::new(sample_rate_hz, config.cutoff_hz),
-            // Approximates exp(-block_secs / release), which isn't
-            // available in no_std. Close enough as blocks are much shorter
-            // than the release time.
-            envelope_decay: 1.0 - block_secs / ENVELOPE_RELEASE.as_secs_f32(),
+            envelope_decay: decay(ENVELOPE_RELEASE),
             background_weight: block_secs / BACKGROUND_WINDOW.as_secs_f32(),
+            beat_strength_decay: decay(BEAT_MEMORY),
             min_beat_gap: (config.min_beat_gap.as_secs_f32() * sample_rate_hz) as u64,
             block: [0.0; BLOCK_LEN],
             block_fill: 0,
             position: 0,
             envelope: 0.0,
+            recent_envelopes: [0.0; RISE_BLOCKS],
+            recent_index: 0,
             background: None,
+            beat_strength: 0.0,
             armed: true,
             last_beat: None,
         }
@@ -188,11 +215,13 @@ impl BeatDetector {
         self.envelope
     }
 
-    /// The envelope level required for a beat. For debugging and
+    /// The rise of the envelope required for a beat. For debugging and
     /// visualization.
     pub fn threshold(&self) -> f32 {
         let background = self.background.unwrap_or(0.0);
-        (background * self.config.trigger_ratio).max(self.config.min_level)
+        (background * self.config.trigger_ratio)
+            .max(self.beat_strength * self.config.min_relative_strength)
+            .max(self.config.min_level)
     }
 
     fn process_block(&mut self) -> Option<Beat> {
@@ -200,6 +229,10 @@ impl BeatDetector {
 
         let peak = self.block.iter().fold(0.0_f32, |max, s| max.max(s.abs()));
         self.envelope = peak.max(self.envelope * self.envelope_decay);
+
+        let rise = self.envelope - self.recent_envelopes[self.recent_index];
+        self.recent_envelopes[self.recent_index] = self.envelope;
+        self.recent_index = (self.recent_index + 1) % RISE_BLOCKS;
 
         // Starting from the first level instead of zero prevents a burst of
         // beats while the background adapts.
@@ -211,7 +244,7 @@ impl BeatDetector {
             .last_beat
             .is_none_or(|last| index - last >= self.min_beat_gap);
 
-        let beat = if self.armed && gap_passed && self.envelope > self.threshold() {
+        let beat = if self.armed && gap_passed && rise > self.threshold() {
             self.armed = false;
             self.last_beat = Some(index);
             Some(Beat {
@@ -219,6 +252,11 @@ impl BeatDetector {
                 time: Duration::from_secs_f64(index as f64 / f64::from(self.sample_rate_hz)),
             })
         } else {
+            if !self.armed {
+                // The envelope keeps rising for a few blocks after the beat
+                // was detected.
+                self.beat_strength = self.beat_strength.max(self.envelope);
+            }
             // Re-arming at a lower level prevents that a fading beat that
             // wobbles around the threshold triggers again.
             if self.envelope < background {
@@ -228,6 +266,7 @@ impl BeatDetector {
         };
 
         self.background = Some(background + (self.envelope - background) * self.background_weight);
+        self.beat_strength *= self.beat_strength_decay;
         beat
     }
 }
@@ -248,6 +287,7 @@ pub fn detect_all(samples: &[f32], sample_rate_hz: f32) -> impl Iterator<Item = 
 mod tests {
     use super::*;
     use crate::test_utils::debug::assert_perfect;
+    use crate::test_utils::eval::evaluate;
     use crate::test_utils::synth::{Signal, Synth};
     use std::format;
     use std::vec::Vec;
@@ -333,6 +373,41 @@ mod tests {
         let synth = (0..4).fold(Synth::new(5.0), |s, i| s.kick(0.5 + i as f32 * 0.5, 0.8));
         let synth = (0..4).fold(synth, |s, i| s.kick(2.5 + i as f32 * 0.5, 0.25));
         check("loud_then_quieter_kicks", synth.build());
+    }
+
+    #[test]
+    fn bass_notes_between_kicks() {
+        let synth = Synth::new(4.0).kicks(120.0, 0.5, 0.8);
+        let synth = (0..7)
+            .map(|i| 0.75 + i as f32 * 0.5)
+            .fold(synth, |s, at| s.bass_note(at, 0.2, 55.0, 0.03));
+        check("bass_notes_between_kicks", synth.build());
+    }
+
+    #[test]
+    fn kicks_with_bass_notes() {
+        let synth = Synth::new(4.0).kicks(120.0, 0.5, 0.8);
+        let synth = (0..7)
+            .map(|i| 0.5 + i as f32 * 0.5)
+            .fold(synth, |s, at| s.bass_note(at, 0.3, 55.0, 0.03));
+        check("kicks_with_bass_notes", synth.build());
+    }
+
+    /// Known limitation: after a sudden drop of 18 dB, the first beat is too
+    /// weak compared to the remembered strength of the loud beats.
+    #[test]
+    fn sudden_volume_drop_misses_first_quiet_kick() {
+        let synth = (0..4).fold(Synth::new(5.0), |s, i| s.kick(0.5 + i as f32 * 0.5, 0.8));
+        let signal = (0..4)
+            .fold(synth, |s, i| s.kick(2.5 + i as f32 * 0.5, 0.1))
+            .build();
+        let (detections, _) = run(&signal.samples, signal.sample_rate, LIVE_CHUNK_LEN);
+        let report = evaluate(&signal.beats, &detections, signal.sample_rate);
+        assert_eq!(
+            (report.missed(), report.false_positives()),
+            (1, 0),
+            "{report}"
+        );
     }
 
     #[test]
