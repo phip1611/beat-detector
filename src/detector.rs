@@ -15,16 +15,23 @@ const BLOCK_LEN: usize = 64;
 /// crossings of a bass wave, short enough to follow the decay of a kick.
 const ENVELOPE_RELEASE: Duration = Duration::from_millis(20);
 
+/// Time window of the background level.
+const BACKGROUND_WINDOW: Duration = Duration::from_millis(200);
+
 /// Tuning parameters of the [`BeatDetector`].
 ///
 /// The defaults work for typical music. All levels refer to samples in range
-/// `-1.0..=1.0`.
+/// `-1.0..=1.0`, but only [`Self::min_level`] is absolute: the detector
+/// adapts to the volume of the input.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Config {
     /// Frequencies above this are removed before the analysis. Kick drums
     /// have most of their energy below it.
     pub cutoff_hz: f32,
-    /// A beat starts when the envelope exceeds this level.
+    /// A beat must exceed the background level by this factor. Higher values
+    /// mean fewer false positives but more missed beats.
+    pub trigger_ratio: f32,
+    /// Levels below this are ignored, e.g., noise.
     pub min_level: f32,
     /// Minimum time between two beats. Limits the maximum tempo.
     pub min_beat_gap: Duration,
@@ -34,7 +41,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cutoff_hz: 120.0,
-            min_level: 0.1,
+            trigger_ratio: 2.0,
+            min_level: 0.005,
             min_beat_gap: Duration::from_millis(100),
         }
     }
@@ -55,8 +63,9 @@ pub struct Beat {
 
 /// Detects beats in a stream of mono audio samples.
 ///
-/// The detector looks for loud bass. It keeps no audio history: its state is
-/// a few hundred bytes, and each sample is processed exactly once.
+/// The detector looks for bass that is loud compared to the recent past. It
+/// keeps no audio history: its state is a few hundred bytes, and each sample
+/// is processed exactly once.
 ///
 /// It works the same for live audio and for whole recordings:
 ///
@@ -73,17 +82,20 @@ pub struct Beat {
 /// 1. Remove everything but the bass (below [`Config::cutoff_hz`]).
 /// 2. Follow the peak level of the block with an envelope that rises
 ///    instantly and falls within ~20 ms.
-/// 3. Report a beat if the envelope exceeds [`Config::min_level`].
+/// 3. Track the background level: the average envelope of the last ~200 ms.
+/// 4. Report a beat if the envelope exceeds the background level times
+///    [`Config::trigger_ratio`] and [`Config::min_level`].
 ///
-/// After a beat, the detector waits until the envelope fell below half of
-/// [`Config::min_level`] and [`Config::min_beat_gap`] passed.
+/// After a beat, the detector waits until the envelope fell below the
+/// background level and [`Config::min_beat_gap`] passed.
 #[derive(Debug, Clone)]
 pub struct BeatDetector {
     config: Config,
     sample_rate_hz: f32,
     lowpass: LowpassFilter<f32>,
-    /// Envelope decay per block.
+    /// Per-block factors derived from the time constants.
     envelope_decay: f32,
+    background_weight: f32,
     min_beat_gap: u64,
 
     /// Samples not yet analyzed as they don't fill a block.
@@ -92,6 +104,8 @@ pub struct BeatDetector {
     /// Number of samples analyzed so far.
     position: u64,
     envelope: f32,
+    /// `None` until the first block initializes it.
+    background: Option<f32>,
     armed: bool,
     last_beat: Option<u64>,
 }
@@ -120,11 +134,13 @@ impl BeatDetector {
             // available in no_std. Close enough as blocks are much shorter
             // than the release time.
             envelope_decay: 1.0 - block_secs / ENVELOPE_RELEASE.as_secs_f32(),
+            background_weight: block_secs / BACKGROUND_WINDOW.as_secs_f32(),
             min_beat_gap: (config.min_beat_gap.as_secs_f32() * sample_rate_hz) as u64,
             block: [0.0; BLOCK_LEN],
             block_fill: 0,
             position: 0,
             envelope: 0.0,
+            background: None,
             armed: true,
             last_beat: None,
         }
@@ -174,8 +190,9 @@ impl BeatDetector {
 
     /// The envelope level required for a beat. For debugging and
     /// visualization.
-    pub const fn threshold(&self) -> f32 {
-        self.config.min_level
+    pub fn threshold(&self) -> f32 {
+        let background = self.background.unwrap_or(0.0);
+        (background * self.config.trigger_ratio).max(self.config.min_level)
     }
 
     fn process_block(&mut self) -> Option<Beat> {
@@ -184,13 +201,17 @@ impl BeatDetector {
         let peak = self.block.iter().fold(0.0_f32, |max, s| max.max(s.abs()));
         self.envelope = peak.max(self.envelope * self.envelope_decay);
 
+        // Starting from the first level instead of zero prevents a burst of
+        // beats while the background adapts.
+        let background = *self.background.get_or_insert(self.envelope);
+
         self.position += BLOCK_LEN as u64;
         let index = self.position - 1;
         let gap_passed = self
             .last_beat
             .is_none_or(|last| index - last >= self.min_beat_gap);
 
-        if self.armed && gap_passed && self.envelope > self.threshold() {
+        let beat = if self.armed && gap_passed && self.envelope > self.threshold() {
             self.armed = false;
             self.last_beat = Some(index);
             Some(Beat {
@@ -200,11 +221,14 @@ impl BeatDetector {
         } else {
             // Re-arming at a lower level prevents that a fading beat that
             // wobbles around the threshold triggers again.
-            if self.envelope < self.threshold() / 2.0 {
+            if self.envelope < background {
                 self.armed = true;
             }
             None
-        }
+        };
+
+        self.background = Some(background + (self.envelope - background) * self.background_weight);
+        beat
     }
 }
 
@@ -225,6 +249,7 @@ mod tests {
     use super::*;
     use crate::test_utils::debug::assert_perfect;
     use crate::test_utils::synth::{Signal, Synth};
+    use std::format;
     use std::vec::Vec;
 
     /// Typical buffer length of a live audio input (5.8 ms at 44.1 kHz).
@@ -245,10 +270,18 @@ mod tests {
         (detections, envelope)
     }
 
-    /// Asserts that all beats and nothing else are detected.
+    /// Asserts that all beats and nothing else are detected, at different
+    /// input volumes, as the volume depends on the audio interface.
     fn check(name: &str, signal: Signal) {
-        let (detections, envelope) = run(&signal.samples, signal.sample_rate, LIVE_CHUNK_LEN);
-        assert_perfect(name, &signal, &detections, &envelope);
+        for gain in [1.0, 0.5, 0.1] {
+            let signal = Signal {
+                samples: signal.samples.iter().map(|s| s * gain).collect(),
+                ..signal.clone()
+            };
+            let (detections, envelope) = run(&signal.samples, signal.sample_rate, LIVE_CHUNK_LEN);
+            let name = format!("{name}-gain{gain}");
+            assert_perfect(&name, &signal, &detections, &envelope);
+        }
     }
 
     #[test]
@@ -257,8 +290,49 @@ mod tests {
     }
 
     #[test]
-    fn silence() {
+    fn silence_and_noise() {
         check("silence", Synth::new(2.0).build());
+        check("noise", Synth::new(2.0).noise(0.05).build());
+    }
+
+    #[test]
+    fn double_kicks() {
+        let synth = [0.5, 1.5, 2.5].into_iter().fold(Synth::new(3.5), |s, at| {
+            s.kick(at, 0.8).kick(at + 0.15, 0.8)
+        });
+        check("double_kicks", synth.build());
+    }
+
+    #[test]
+    fn fast_tempo() {
+        let synth = Synth::new(4.0)
+            .kicks(180.0, 0.5, 0.8)
+            .hihats(720.0, 0.5, 0.3);
+        check("fast_tempo", synth.build());
+    }
+
+    #[test]
+    fn kicks_with_hihats_and_snare() {
+        let synth = Synth::new(4.0)
+            .kicks(120.0, 0.5, 0.8)
+            .hihats(480.0, 0.125, 0.4);
+        let synth = [1.0, 2.0, 3.0]
+            .into_iter()
+            .fold(synth, |s, at| s.snare(at, 0.6));
+        check("kicks_with_hihats_and_snare", synth.build());
+    }
+
+    #[test]
+    fn kicks_with_vocal_tone() {
+        let synth = Synth::new(4.0).kicks(120.0, 0.5, 0.6).tone(300.0, 0.3);
+        check("kicks_with_vocal_tone", synth.build());
+    }
+
+    #[test]
+    fn loud_then_quieter_kicks() {
+        let synth = (0..4).fold(Synth::new(5.0), |s, i| s.kick(0.5 + i as f32 * 0.5, 0.8));
+        let synth = (0..4).fold(synth, |s, i| s.kick(2.5 + i as f32 * 0.5, 0.25));
+        check("loud_then_quieter_kicks", synth.build());
     }
 
     #[test]
