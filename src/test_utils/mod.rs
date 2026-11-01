@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 
+pub mod debug;
+pub mod eval;
+pub mod synth;
+
 use crate::util::stereo_to_mono;
 use itertools::Itertools;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::vec::Vec;
 
 /// Reads a WAV file to mono audio. Returns the samples as mono audio.
@@ -36,6 +40,14 @@ fn read_wav_to_mono<T: AsRef<Path>>(file: T) -> (Vec<i16>, hound::WavSpec) {
     } else {
         panic!("unsupported format!");
     }
+}
+
+/// Returns `target/test-artifacts/`, honoring `CARGO_TARGET_DIR`.
+pub fn target_dir_test_artifacts() -> PathBuf {
+    let target_dir = std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target"));
+    target_dir.join("test-artifacts")
 }
 
 /// Accessor to various samples. One sample here refers to what a sample is in
