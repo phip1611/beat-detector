@@ -11,6 +11,10 @@ use lowpass_filter::LowpassFilter;
 /// efficient slice-based filtering.
 const BLOCK_LEN: usize = 64;
 
+/// Frequencies below this, such as a DC offset of the audio input, are
+/// removed before the analysis.
+const DC_CUTOFF_HZ: f32 = 20.0;
+
 /// How fast the envelope falls after a peak. Long enough to bridge the zero
 /// crossings of a bass wave, short enough to follow the decay of a kick.
 const ENVELOPE_RELEASE: Duration = Duration::from_millis(20);
@@ -92,7 +96,7 @@ pub struct Beat {
 ///
 /// For each block of 64 samples:
 ///
-/// 1. Remove everything but the bass (below [`Config::cutoff_hz`]).
+/// 1. Remove everything but the bass (20 Hz to [`Config::cutoff_hz`]).
 /// 2. Follow the peak level of the block with an envelope that rises
 ///    instantly and falls within ~20 ms.
 /// 3. Track the background level: the average envelope of the last ~200 ms.
@@ -109,6 +113,7 @@ pub struct BeatDetector {
     config: Config,
     sample_rate_hz: f32,
     lowpass: LowpassFilter<f32>,
+    dc_lowpass: LowpassFilter<f32>,
     /// Per-block factors derived from the time constants.
     envelope_decay: f32,
     background_weight: f32,
@@ -156,6 +161,7 @@ impl BeatDetector {
             config,
             sample_rate_hz,
             lowpass: LowpassFilter::new(sample_rate_hz, config.cutoff_hz),
+            dc_lowpass: LowpassFilter::new(sample_rate_hz, DC_CUTOFF_HZ),
             envelope_decay: decay(ENVELOPE_RELEASE),
             background_weight: block_secs / BACKGROUND_WINDOW.as_secs_f32(),
             beat_strength_decay: decay(BEAT_MEMORY),
@@ -225,6 +231,12 @@ impl BeatDetector {
     }
 
     fn process_block(&mut self) -> Option<Beat> {
+        // Bandpass: subtracting the lowest frequencies removes a DC offset.
+        let mut dc = self.block;
+        self.dc_lowpass.run_slice(&mut dc);
+        for (sample, dc) in self.block.iter_mut().zip(dc) {
+            *sample -= dc;
+        }
         self.lowpass.run_slice(&mut self.block);
 
         let peak = self.block.iter().fold(0.0_f32, |max, s| max.max(s.abs()));
@@ -391,6 +403,12 @@ mod tests {
             .map(|i| 0.5 + i as f32 * 0.5)
             .fold(synth, |s, at| s.bass_note(at, 0.3, 55.0, 0.03));
         check("kicks_with_bass_notes", synth.build());
+    }
+
+    #[test]
+    fn kicks_with_dc_offset() {
+        let synth = Synth::new(4.0).kicks(120.0, 0.5, 0.3).dc_offset(0.3);
+        check("kicks_with_dc_offset", synth.build());
     }
 
     /// Known limitation: after a sudden drop of 18 dB, the first beat is too
