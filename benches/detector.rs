@@ -6,7 +6,7 @@
 //! - `throughput`: cost per sample when analyzing a recording
 //! - `live_buffer`: cost per call with a typical live audio buffer
 
-use beat_detector::detector::BeatDetector;
+use beat_detector::BeatDetector;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use std::f32::consts::TAU;
 use std::hint::black_box;
